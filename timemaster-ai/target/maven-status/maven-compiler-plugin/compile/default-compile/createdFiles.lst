@@ -1,0 +1,8 @@
+com\vinhhuy\timemasterai\tool\AiTaskTool.class
+com\vinhhuy\timemasterai\agent\AiMentorService.class
+com\vinhhuy\timemasterai\config\AiMentorConfig.class
+com\vinhhuy\timemasterai\dto\TaskRequest$TaskRequestBuilder.class
+com\vinhhuy\timemasterai\TimemasterAiApplication.class
+com\vinhhuy\timemasterai\controller\AiController.class
+com\vinhhuy\timemasterai\dto\ChatRequest.class
+com\vinhhuy\timemasterai\dto\TaskRequest.class
