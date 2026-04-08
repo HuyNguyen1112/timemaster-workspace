@@ -12,9 +12,4 @@ public class ChatRequest {
      * Dòng chat của user
      */
     private String message;
-    
-    /**
-     * Tùy chọn ID của User để lưu lịch sử hội thoại tách biệt
-     */
-    private String userId; 
 }

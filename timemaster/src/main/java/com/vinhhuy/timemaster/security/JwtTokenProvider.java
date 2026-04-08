@@ -21,12 +21,13 @@ public class JwtTokenProvider {
     }
 
     // Tạo Token từ Email người dùng
-    public String generateToken(String email) {
+    public String generateToken(String email, Long userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         return Jwts.builder()
                 .setSubject(email)
+                .claim("userId", userId)
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

@@ -15,6 +15,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // Lấy tất cả công việc của một User
     List<Task> findByUserId(Long userId);
 
+    // Lấy công việc của User theo ngày thực hiện
+    List<Task> findByUserIdAndTargetDate(Long userId, java.time.LocalDate targetDate);
+
     // Lấy công việc của User theo Trạng thái (Ví dụ: Lấy các việc CHƯA HOÀN THÀNH)
     List<Task> findByUserIdAndStatus(Long userId, Task.TaskStatus status);
 

@@ -2,6 +2,7 @@ package com.vinhhuy.timemaster.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -25,6 +26,8 @@ public class Task {
     private String title;
 
     private LocalTime startTime; // Giờ dự kiến bắt đầu
+    @Column(name = "target_date")
+    private LocalDate targetDate; // Ngày dự kiến thực hiện
 
     private Double estimatedDuration; // Thời lượng dự kiến (giờ)
 

@@ -1,4 +1,3 @@
-com\vinhhuy\timemasterai\tool\AiTaskTool.class
 com\vinhhuy\timemasterai\agent\AiMentorService.class
 com\vinhhuy\timemasterai\config\AiMentorConfig.class
 com\vinhhuy\timemasterai\dto\TaskRequest$TaskRequestBuilder.class

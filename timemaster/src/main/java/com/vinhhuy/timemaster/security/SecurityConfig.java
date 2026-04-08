@@ -66,6 +66,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Mở cửa hoàn toàn cho các API liên quan đến Đăng ký, Đăng nhập
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Cho phép đường truyền máy quét nội bộ MCP đi qua không cần JWT
+                        .requestMatchers("/mcp/**", "/sse", "/error").permitAll()
                         // TẤT CẢ các API còn lại (Task, Pomodoro...) ĐỀU PHẢI có thẻ JWT (đã đăng nhập)
                         .anyRequest().authenticated()
                 )

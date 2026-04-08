@@ -18,4 +18,7 @@ public interface TaskService {
 
     // Xóa công việc
     void deleteTask(Long taskId, Long userId);
+
+    // Cập nhật công việc
+    TaskResponse updateTask(Long taskId, Long userId, TaskRequest request);
 }

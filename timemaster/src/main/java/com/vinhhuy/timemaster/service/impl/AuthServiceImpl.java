@@ -35,12 +35,12 @@ public class AuthServiceImpl implements AuthService {
         // 2. Nếu không báo lỗi tức là mật khẩu đúng, lưu trạng thái vào SecurityContext
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 3. Tạo JWT Token
-        String jwt = tokenProvider.generateToken(request.email());
-
-        // 4. Lấy thêm thông tin User để trả về cho Mobile App hiển thị
+        // Lấy thông tin User trước
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Tạo JWT Token có đính kèm userId
+        String jwt = tokenProvider.generateToken(request.email(), user.getId());
 
         return new AuthResponse(jwt, user.getId(), user.getEmail(), user.getFullName());
     }
@@ -62,7 +62,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         // 3. Đăng nhập luôn cho user sau khi đăng ký thành công
-        String jwt = tokenProvider.generateToken(user.getEmail());
+        String jwt = tokenProvider.generateToken(user.getEmail(), user.getId());
 
         return new AuthResponse(jwt, user.getId(), user.getEmail(), user.getFullName());
     }

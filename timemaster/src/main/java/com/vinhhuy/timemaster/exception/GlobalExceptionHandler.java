@@ -38,4 +38,14 @@ public class GlobalExceptionHandler {
         error.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error); // Trả về chuẩn 403
     }
+
+    // Bắt lỗi trùng lịch (Conflict)
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflictException(ConflictException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "CONFLICT");
+        response.put("message", ex.getMessage());
+        response.put("conflicts", ex.getConflictingTasks());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response); // Trả về chuẩn 409
+    }
 }
