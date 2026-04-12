@@ -42,6 +42,20 @@ public class TaskController {
     }
 
     /**
+     * API: Cập nhật thông tin công việc (Hỗ trợ cờ force để bỏ qua trùng lịch)
+     * PUT /api/tasks/{taskId}?userId=1
+     */
+    @PutMapping("/{taskId}")
+    public ResponseEntity<TaskResponse> updateTask(
+            @PathVariable Long taskId,
+            @RequestParam Long userId,
+            @Valid @RequestBody TaskRequest request) {
+
+        TaskResponse updatedTask = taskService.updateTask(taskId, userId, request);
+        return ResponseEntity.ok(updatedTask);
+    }
+
+    /**
      * API: Đánh dấu hoàn thành công việc
      * PUT /api/tasks/{taskId}/complete?userId=1
      */
