@@ -19,6 +19,7 @@ public class TaskMapper {
         return new TaskResponse(
                 entity.getId(),
                 entity.getTitle(),
+                entity.getDescription(),
                 entity.getTargetDate(),
                 entity.getStartTime(),
                 entity.getEstimatedDuration(),

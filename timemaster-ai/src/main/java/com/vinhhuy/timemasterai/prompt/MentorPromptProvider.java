@@ -17,29 +17,28 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 public class MentorPromptProvider {
 
-    @Value("classpath:prompts/mentor/system.txt")
-    private Resource systemPersonaResource;
+   @Value("classpath:prompts/mentor/system.txt")
+   private Resource systemPersonaResource;
 
-    private String cachedSystemPersona;
+   private String cachedSystemPersona;
 
-    @PostConstruct
-    public void init() throws IOException {
-        this.cachedSystemPersona = StreamUtils.copyToString(
-                systemPersonaResource.getInputStream(), 
-                StandardCharsets.UTF_8
-        );
-        log.info("Mentor System Persona cached successfully ({} characters)", cachedSystemPersona.length());
-    }
+   @PostConstruct
+   public void init() throws IOException {
+      this.cachedSystemPersona = StreamUtils.copyToString(
+            systemPersonaResource.getInputStream(),
+            StandardCharsets.UTF_8);
+      log.info("Mentor System Persona cached successfully ({} characters)", cachedSystemPersona.length());
+   }
 
-    /**
-     * Returns the cached System Persona with dynamic User Context injected.
-     * Uses ObjectMapper-based JSON serialization to prevent Prompt Injection (Point 4).
-     */
-    public String getSystemPersona(UserContext userContext) {
-        return String.format(
-                "%s\n\nUSER_CONTEXT_JSON: %s",
-                cachedSystemPersona,
-                userContext.toJson()
-        );
-    }
+   /**
+    * Returns the cached System Persona with dynamic User Context injected.
+    * Uses ObjectMapper-based JSON serialization to prevent Prompt Injection (Point
+    * 4).
+    */
+   public String getSystemPersona(UserContext userContext) {
+      return String.format(
+            "%s\n\nUSER_CONTEXT_JSON: %s",
+            cachedSystemPersona,
+            userContext.toJson());
+   }
 }

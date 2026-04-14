@@ -2,6 +2,7 @@ package com.vinhhuy.timemaster.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -10,11 +11,15 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    // Khóa bí mật (Secret Key) để ký token. Trong thực tế sẽ để trong file properties
-    private final String jwtSecret = "DayLaMotKhoaBiMatRatDaiVaKhoDoanChoUngDungTimeMasterCuaVinhHuy2026!";
+    // Khóa bí mật (Secret Key) nạp từ biến môi trường hoặc properties
+    private final String jwtSecret;
 
     // Thời gian sống của Token (Ví dụ: 7 ngày)
     private final int jwtExpirationInMs = 604800000;
+
+    public JwtTokenProvider(@Value("${security.jwt.secret}") String jwtSecret) {
+        this.jwtSecret = jwtSecret;
+    }
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());

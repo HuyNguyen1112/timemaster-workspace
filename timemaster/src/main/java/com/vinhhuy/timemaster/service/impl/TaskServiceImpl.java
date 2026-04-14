@@ -11,6 +11,8 @@ import com.vinhhuy.timemaster.repository.CategoryRepository;
 import com.vinhhuy.timemaster.repository.TaskRepository;
 import com.vinhhuy.timemaster.repository.UserRepository;
 import com.vinhhuy.timemaster.service.TaskService;
+import com.vinhhuy.timemaster.service.VectorSyncService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,11 +26,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
 
-    // Nhờ @RequiredArgsConstructor của Lombok, Spring sẽ tự động Inject các Bean này
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final TaskMapper taskMapper;
+    private final VectorSyncService vectorSyncService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     @Transactional
@@ -71,6 +74,11 @@ public class TaskServiceImpl implements TaskService {
 
         // 4. Lưu xuống Database và map sang Response
         Task savedTask = taskRepository.save(task);
+
+        // 5. Đồng bộ sang AI Vector Store (Async)
+        String authHeader = httpServletRequest.getHeader("Authorization");
+        vectorSyncService.syncToAi(savedTask.getId(), authHeader);
+
         return taskMapper.toResponse(savedTask);
     }
 
@@ -99,6 +107,10 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(Task.TaskStatus.COMPLETED);
         Task updatedTask = taskRepository.save(task);
 
+        // Notify AI of completion
+        String authHeader = httpServletRequest.getHeader("Authorization");
+        vectorSyncService.syncToAi(updatedTask.getId(), authHeader);
+
         return taskMapper.toResponse(updatedTask);
     }
 
@@ -112,6 +124,10 @@ public class TaskServiceImpl implements TaskService {
         if (!task.getUser().getId().equals(userId)) {
             throw new RuntimeException("Bạn không có quyền xóa công việc này.");
         }
+
+        // Notify AI before deletion
+        String authHeader = httpServletRequest.getHeader("Authorization");
+        vectorSyncService.deleteFromAi(task.getId(), authHeader);
 
         taskRepository.delete(task);
     }
@@ -155,6 +171,11 @@ public class TaskServiceImpl implements TaskService {
         }
 
         Task updatedTask = taskRepository.save(task);
+
+        // Đồng bộ cập nhật sang AI Vector Store (Async)
+        String authHeader = httpServletRequest.getHeader("Authorization");
+        vectorSyncService.syncToAi(updatedTask.getId(), authHeader);
+
         return taskMapper.toResponse(updatedTask);
     }
 

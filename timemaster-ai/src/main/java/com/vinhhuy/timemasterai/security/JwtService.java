@@ -3,6 +3,7 @@ package com.vinhhuy.timemasterai.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,10 +14,14 @@ import java.util.Date;
 
 @Service
 @Slf4j
+
 public class JwtService {
 
-    @Value("${security.jwt.secret}")
-    private String secretKey;
+    private final String secretKey;
+
+    public JwtService(@Value("${security.jwt.secret}") String secretKey) {
+        this.secretKey = secretKey;
+    }
 
     /**
      * Verifies the JWT signature and extracts the User ID.
@@ -37,7 +42,6 @@ public class JwtService {
                     .parseClaimsJws(token)
                     .getBody();
 
-            // Expiration Check (Point 3)
             if (claims.getExpiration().before(new Date())) {
                 log.warn("Attempted access with expired token");
                 throw new RuntimeException("Security token has expired");

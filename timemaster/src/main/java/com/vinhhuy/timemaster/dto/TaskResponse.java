@@ -7,6 +7,7 @@ import java.time.LocalTime;
 public record TaskResponse(
         Long id,
         String title,
+        String description,
         LocalDate targetDate,
         LocalTime startTime,
         Double estimatedDuration,

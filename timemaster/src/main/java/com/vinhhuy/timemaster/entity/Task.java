@@ -25,6 +25,9 @@ public class Task {
     @Column(nullable = false)
     private String title;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     private LocalTime startTime; // Giờ dự kiến bắt đầu
     @Column(name = "target_date")
     private LocalDate targetDate; // Ngày dự kiến thực hiện
