@@ -8,12 +8,11 @@ C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemaste
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\security\UserContext.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\security\JwtInterceptor.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\config\AiMentorConfig.java
-C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\entity\TaskEntity.java
-C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\repository\TaskRepository.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\agent\AiMentorAgent.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\agent\QueryRouterAgent.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\dto\MentorResponse.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\prompt\MentorPromptProvider.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\service\impl\AiMentorServiceImpl.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\TimemasterAiApplication.java
+C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\dto\TaskResponse.java
 C:\MyFile\timemaster-workspace\timemaster-ai\src\main\java\com\vinhhuy\timemasterai\service\TaskIngestionService.java

@@ -20,8 +20,19 @@ public class JwtInterceptor implements HandlerInterceptor {
     private final JwtService jwtService;
     private final UserContext userContext;
 
+    @org.springframework.beans.factory.annotation.Value("${vector-store.internal-secret}")
+    private String internalSecret;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // 1. Check for Internal Secret (Service-to-Service bypass)
+        String internalSecretHeader = request.getHeader("X-Internal-Secret");
+        if (internalSecret != null && internalSecret.equals(internalSecretHeader)) {
+            log.debug("Internal secret matched. Bypassing JWT check for: {}", request.getRequestURI());
+            return true;
+        }
+
+        // 2. Standard JWT flow
         String authHeader = request.getHeader("Authorization");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -49,3 +60,4 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
     }
 }
+

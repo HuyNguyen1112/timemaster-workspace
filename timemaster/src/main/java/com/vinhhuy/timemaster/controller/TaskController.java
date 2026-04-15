@@ -29,6 +29,19 @@ public class TaskController {
     }
 
     /**
+     * API: Lấy danh sách công việc theo ngày
+     * GET /api/tasks/by-date?userId=1&targetDate=2026-04-14
+     */
+    @GetMapping("/by-date")
+    public ResponseEntity<List<TaskResponse>> getTasksByDate(
+            @RequestParam Long userId,
+            @RequestParam java.time.LocalDate targetDate) {
+        List<TaskResponse> tasks = taskService.getTasksByDate(userId, targetDate);
+        return ResponseEntity.ok(tasks);
+    }
+
+
+    /**
      * API: Tạo mới một công việc
      * POST /api/tasks?userId=1
      */

@@ -60,23 +60,44 @@ public class AiController {
 
     /**
      * Real-time sync endpoint for a single task (Ingest or Update).
+     * Accepts the full task data as pushed from the Core service.
      */
     @PostMapping("/ingest-single")
-    public ResponseEntity<String> ingestSingle(@RequestParam Long taskId) {
-        log.info("Triggering real-time sync for Task ID: {} (UserID: {})", taskId, userContext.getUserId());
-        taskIngestionService.ingestSingleTask(taskId, userContext.getUserId());
-        return ResponseEntity.ok("Sync complete for Task: " + taskId);
+    public ResponseEntity<String> ingestSingle(
+            @RequestBody com.vinhhuy.timemasterai.dto.TaskResponse task,
+            @RequestParam(required = false) Long userId) {
+
+        // Priority 1: From query param (explicit)
+        // Priority 2: From JWT context (standard)
+        // Priority 3: From Task body (Data Push flow)
+        Long effectiveUserId = userId;
+        if (effectiveUserId == null) {
+            effectiveUserId = userContext.getUserId();
+        }
+        if (effectiveUserId == null) {
+            effectiveUserId = task.userId();
+        }
+
+        log.info("Triggering real-time sync for Task ID: {} (UserID: {})", task.id(), effectiveUserId);
+        
+        if (effectiveUserId == null) {
+            return ResponseEntity.status(401).body("Missing User ID for ingestion");
+        }
+
+        taskIngestionService.ingestSingleTask(task, effectiveUserId);
+        return ResponseEntity.ok("Sync complete for Task: " + task.id());
     }
 
     /**
      * Real-time removal endpoint for a single task.
      */
     @DeleteMapping("/ingest-single")
-    public ResponseEntity<String> deleteSingle(@RequestParam Long taskId) {
-        log.info("Triggering real-time removal for Task ID: {} (UserID: {})", taskId, userContext.getUserId());
+    public ResponseEntity<String> deleteSingle(@RequestParam Long taskId, @RequestParam(required = false) Long userId) {
+        log.info("Triggering real-time removal for Task ID: {} (UserID: {})", taskId, userId);
         taskIngestionService.removeTaskFromVectorStore(taskId);
         return ResponseEntity.ok("Removal complete for Task: " + taskId);
     }
+
 
     @GetMapping("/testTools")
     public ResponseEntity<String> testTools() {

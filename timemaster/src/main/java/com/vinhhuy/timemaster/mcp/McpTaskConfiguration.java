@@ -29,6 +29,9 @@ public class McpTaskConfiguration {
         public record TaskIdUserParams(Long taskId, Long userId) {
         }
 
+        public record UserDateParams(Long userId, java.time.LocalDate targetDate) {
+        }
+
         public record McpUpdateTaskParams(
                         Long taskId,
                         Long userId,
@@ -69,6 +72,16 @@ public class McpTaskConfiguration {
                                                 (UserIdParam params) -> taskService.getAllTasksByUser(params.userId()))
                                 .description("Lấy danh sách TẤT CẢ công việc (Tasks) của người dùng hiện tại dựa vào userId.")
                                 .inputType(UserIdParam.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpGetTasksByDateTool(TaskService taskService) {
+                return FunctionToolCallback
+                                .builder("mcpGetTasksByDate",
+                                                (UserDateParams params) -> taskService.getTasksByDate(params.userId(), params.targetDate()))
+                                .description("Lấy danh sách công việc (Tasks) của người dùng theo một ngày cụ thể (targetDate). Dùng tool này khi user hỏi về công việc của một ngày nhất định như 'hôm nay', 'ngày mai', hoặc một ngày cụ thể.")
+                                .inputType(UserDateParams.class)
                                 .build();
         }
 

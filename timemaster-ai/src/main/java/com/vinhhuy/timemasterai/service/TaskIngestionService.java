@@ -1,5 +1,7 @@
 package com.vinhhuy.timemasterai.service;
 
+import com.vinhhuy.timemasterai.dto.TaskResponse;
+
 public interface TaskIngestionService {
 
     /**
@@ -9,11 +11,10 @@ public interface TaskIngestionService {
     void ingestUserTasks(Long userId);
 
     /**
-     * Ingests a single task into the Vector Store.
-     * @param taskId The ID of the task.
-     * @param userId The ID of the user.
+     * Ingests a single task into the Vector Store from provided DTO data.
      */
-    void ingestSingleTask(Long taskId, Long userId);
+    void ingestSingleTask(TaskResponse task, Long userId);
+
 
     /**
      * Removes a single task from the Vector Store by its ID.

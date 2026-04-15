@@ -14,5 +14,8 @@ public record TaskResponse(
         String matrixType,
         String status,
         String categoryName,
+        Long userId,
+        Long categoryId,
         LocalDateTime createdAt
 ) {}
+

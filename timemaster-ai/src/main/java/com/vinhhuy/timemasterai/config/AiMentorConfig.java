@@ -54,6 +54,7 @@ public class AiMentorConfig {
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(0.1)
+                .maxRetries(0) // Disable retries to save Free Tier quota (20 req/day)
                 .build();
     }
 
@@ -62,7 +63,7 @@ public class AiMentorConfig {
             @Value("${langchain4j.google-ai-gemini.chat-model.api-key}") String apiKey) {
         return GoogleAiEmbeddingModel.builder()
                 .apiKey(apiKey)
-                .modelName("gemini-embedding-001")
+                .modelName("models/embedding-gecko-001") // Guaranteed 768 dimensions
                 .build();
     }
 
@@ -86,9 +87,10 @@ public class AiMentorConfig {
                 .user(user)
                 .password(password)
                 .table("ai_task_vectors")
-                .dimension(768) // Match Gemini embedding-001
+                .dimension(768) // Efficient 768 dimensions
                 .createTable(true)
                 .build();
+
     }
 
     @Bean

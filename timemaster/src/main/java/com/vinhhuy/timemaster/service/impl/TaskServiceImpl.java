@@ -74,12 +74,14 @@ public class TaskServiceImpl implements TaskService {
 
         // 4. Lưu xuống Database và map sang Response
         Task savedTask = taskRepository.save(task);
+        TaskResponse response = taskMapper.toResponse(savedTask);
 
         // 5. Đồng bộ sang AI Vector Store (Async)
-        String authHeader = httpServletRequest.getHeader("Authorization");
-        vectorSyncService.syncToAi(savedTask.getId(), authHeader);
+        // Luôn gọi đồng bộ, VectorSyncServiceImpl sẽ tự dùng Secret nếu authHeader null
+        String authHeader = getAuthHeaderSafely();
+        vectorSyncService.syncToAi(response, authHeader);
 
-        return taskMapper.toResponse(savedTask);
+        return response;
     }
 
     @Override
@@ -88,6 +90,16 @@ public class TaskServiceImpl implements TaskService {
         List<Task> tasks = taskRepository.findByUserId(userId);
 
         // Dùng Stream API để map toàn bộ danh sách Entity sang DTO
+        return tasks.stream()
+                .map(taskMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getTasksByDate(Long userId, java.time.LocalDate targetDate) {
+        List<Task> tasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
+
         return tasks.stream()
                 .map(taskMapper::toResponse)
                 .collect(Collectors.toList());
@@ -106,12 +118,13 @@ public class TaskServiceImpl implements TaskService {
 
         task.setStatus(Task.TaskStatus.COMPLETED);
         Task updatedTask = taskRepository.save(task);
+        TaskResponse response = taskMapper.toResponse(updatedTask);
 
         // Notify AI of completion
-        String authHeader = httpServletRequest.getHeader("Authorization");
-        vectorSyncService.syncToAi(updatedTask.getId(), authHeader);
+        String authHeader = getAuthHeaderSafely();
+        vectorSyncService.syncToAi(response, authHeader);
 
-        return taskMapper.toResponse(updatedTask);
+        return response;
     }
 
     @Override
@@ -126,8 +139,10 @@ public class TaskServiceImpl implements TaskService {
         }
 
         // Notify AI before deletion
-        String authHeader = httpServletRequest.getHeader("Authorization");
-        vectorSyncService.deleteFromAi(task.getId(), authHeader);
+        String authHeader = getAuthHeaderSafely();
+        if (authHeader != null) {
+            vectorSyncService.deleteFromAi(task.getId(), authHeader);
+        }
 
         taskRepository.delete(task);
     }
@@ -171,12 +186,13 @@ public class TaskServiceImpl implements TaskService {
         }
 
         Task updatedTask = taskRepository.save(task);
+        TaskResponse response = taskMapper.toResponse(updatedTask);
 
         // Đồng bộ cập nhật sang AI Vector Store (Async)
-        String authHeader = httpServletRequest.getHeader("Authorization");
-        vectorSyncService.syncToAi(updatedTask.getId(), authHeader);
+        String authHeader = getAuthHeaderSafely();
+        vectorSyncService.syncToAi(response, authHeader);
 
-        return taskMapper.toResponse(updatedTask);
+        return response;
     }
 
     private void validateTimeOverlap(Long userId, LocalDate targetDate, LocalTime startTime, Double duration, Long excludeTaskId, boolean force) {
@@ -216,4 +232,17 @@ public class TaskServiceImpl implements TaskService {
             throw new ConflictException("CONFLICT: Trùng lịch với các công việc khác.", conflicts);
         }
     }
+
+    /**
+     * Lấy token an toàn từ Request. 
+     * Tránh lỗi "No thread-bound request found" khi gọi từ MCP.
+     */
+    private String getAuthHeaderSafely() {
+        try {
+            return httpServletRequest.getHeader("Authorization");
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }
+

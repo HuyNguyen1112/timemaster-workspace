@@ -15,6 +15,9 @@ public class TaskMapper {
         String statusStr = entity.getStatus() != null ? entity.getStatus().name() : null;
         String categoryName = entity.getCategory() != null ? entity.getCategory().getName() : null;
 
+        Long userId = entity.getUser() != null ? entity.getUser().getId() : null;
+        Long categoryId = entity.getCategory() != null ? entity.getCategory().getId() : null;
+
         // Trả về Record thông qua Constructor
         return new TaskResponse(
                 entity.getId(),
@@ -26,7 +29,10 @@ public class TaskMapper {
                 matrixTypeStr,
                 statusStr,
                 categoryName,
+                userId,
+                categoryId,
                 entity.getCreatedAt()
         );
     }
 }
+

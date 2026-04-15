@@ -18,28 +18,20 @@ public class AiMentorServiceImpl implements AiMentorService {
 
     @Override
     public MentorResponse chat(String userMessage) {
-        return chatWithRetry(userMessage, 1); // Retry once on failure
-    }
-
-    private MentorResponse chatWithRetry(String userMessage, int retryCount) {
         Long userId = userContext.getUserId();
         log.info("Orchestrating AI chat for UserID: {}", userId);
 
         try {
             // Isolation: Memory ID linked to User ID
             MentorResponse response = aiMentorAgent.chat(userId, userMessage);
-            
+
             // Robust Validation
             validateResponse(response);
-            
+
             return response;
         } catch (Exception e) {
-            if (retryCount > 0) {
-                log.warn("AI interaction failed for UserID: {}, retrying once... Error: {}", userId, e.getMessage());
-                return chatWithRetry(userMessage, retryCount - 1);
-            }
-            log.error("AI Orchestration failed after retries for UserID: {}", userId, e);
-            throw new RuntimeException("AI processing failed. Please try again later.");
+            log.error("AI Orchestration failed for UserID: {}", userId, e);
+            throw new RuntimeException("AI processing failed: " + e.getMessage());
         }
     }
 

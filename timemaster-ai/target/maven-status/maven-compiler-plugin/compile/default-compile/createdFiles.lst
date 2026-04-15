@@ -3,7 +3,6 @@ com\vinhhuy\timemasterai\security\JwtInterceptor.class
 com\vinhhuy\timemasterai\config\AiMentorConfig.class
 com\vinhhuy\timemasterai\dto\MentorResponse.class
 com\vinhhuy\timemasterai\agent\AiMentorAgent.class
-com\vinhhuy\timemasterai\repository\TaskRepository.class
 com\vinhhuy\timemasterai\service\impl\TaskIngestionServiceImpl.class
 com\vinhhuy\timemasterai\dto\ChatRequest.class
 com\vinhhuy\timemasterai\dto\TaskRequest.class
@@ -16,6 +15,6 @@ com\vinhhuy\timemasterai\service\impl\AiMentorServiceImpl.class
 com\vinhhuy\timemasterai\TimemasterAiApplication.class
 com\vinhhuy\timemasterai\config\WebConfig.class
 com\vinhhuy\timemasterai\controller\AiController.class
+com\vinhhuy\timemasterai\dto\TaskResponse.class
 com\vinhhuy\timemasterai\security\UserContext.class
 com\vinhhuy\timemasterai\agent\QueryRouterAgent.class
-com\vinhhuy\timemasterai\entity\TaskEntity.class

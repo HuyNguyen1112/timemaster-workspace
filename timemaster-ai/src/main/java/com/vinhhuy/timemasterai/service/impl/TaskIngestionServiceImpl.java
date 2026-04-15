@@ -1,7 +1,6 @@
 package com.vinhhuy.timemasterai.service.impl;
 
-import com.vinhhuy.timemasterai.entity.TaskEntity;
-import com.vinhhuy.timemasterai.repository.TaskRepository;
+import com.vinhhuy.timemasterai.dto.TaskResponse;
 import com.vinhhuy.timemasterai.service.TaskIngestionService;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
@@ -18,45 +17,33 @@ import java.util.List;
 @Slf4j
 public class TaskIngestionServiceImpl implements TaskIngestionService {
 
-    private final TaskRepository taskRepository;
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;
 
     @Override
     public void ingestUserTasks(Long userId) {
-        log.info("Starting hardened ingestion for User ID: {}", userId);
-        
-        List<TaskEntity> tasks = taskRepository.findByUserId(userId);
-        if (tasks.isEmpty()) {
-            log.warn("No tasks found for User ID: {}", userId);
-            return;
-        }
-
-        for (TaskEntity task : tasks) {
-            ingestTask(task, userId);
-        }
-
-        log.info("Successfully upserted {} tasks into Vector Store.", tasks.size());
+        // Pure Microservice: Batch ingestion should now PULL from Core Service API instead of reading DB.
+        // Implementation postponed or handled via manual trigger in Core.
+        log.warn("Batch ingestion via direct DB access for User ID: {} is disabled. Use real-time sync or Implement Pull API.", userId);
     }
 
     @Override
-    public void ingestSingleTask(Long taskId, Long userId) {
-        log.info("Starting real-time ingestion for Task ID: {} (User ID: {})", taskId, userId);
+    public void ingestSingleTask(TaskResponse task, Long userId) {
+        log.info("Starting real-time ingestion for Task ID: {} (User ID: {})", task.id(), userId);
         
-        taskRepository.findById(taskId).ifPresentOrElse(task -> {
-            if (!task.getUserId().equals(userId)) {
-                log.error("Sync error: Task {} does not belong to User {}", taskId, userId);
-                return;
-            }
-            ingestTask(task, userId);
-            log.info("Successfully synced task {} to Vector Store.", taskId);
-        }, () -> log.error("Sync error: Task {} not found in DB", taskId));
+        if (!task.userId().equals(userId)) {
+            log.error("Sync error: Task {} does not belong to User {}", task.id(), userId);
+            return;
+        }
+
+        ingestTask(task, userId);
+        log.info("Successfully synced task {} to Vector Store via Data Push.", task.id());
     }
 
     @Override
     public void removeTaskFromVectorStore(Long taskId) {
-        String vectorId = "task_" + taskId;
-        log.info("Removing Task ID {} from Vector Store", taskId);
+        String vectorId = getVectorId(taskId);
+        log.info("Removing Task ID {} (Vector ID {}) from Vector Store", taskId, vectorId);
         try {
             embeddingStore.removeAll(java.util.Collections.singletonList(vectorId));
         } catch (Exception e) {
@@ -64,25 +51,25 @@ public class TaskIngestionServiceImpl implements TaskIngestionService {
         }
     }
 
-    private void ingestTask(TaskEntity task, Long userId) {
+    private void ingestTask(TaskResponse task, Long userId) {
         String content = String.format(
                 "Task ID %d: %s. Description: %s. Status: %s. Scheduled on: %s %s.",
-                task.getId(),
-                task.getTitle(),
-                task.getDescription() != null ? task.getDescription() : "No description",
-                task.getStatus(),
-                task.getTargetDate(),
-                task.getStartTime() != null ? task.getStartTime() : "00:00"
+                task.id(),
+                task.title(),
+                task.description() != null ? task.description() : "No description",
+                task.status(),
+                task.targetDate(),
+                task.startTime() != null ? task.startTime() : "00:00"
         );
 
         Metadata metadata = Metadata.from("userId", String.valueOf(userId));
         TextSegment segment = TextSegment.from(content, metadata);
-        String vectorId = "task_" + task.getId();
+        String vectorId = getVectorId(task.id());
         
         try {
             embeddingStore.removeAll(java.util.Collections.singletonList(vectorId));
         } catch (Exception e) {
-            log.warn("Could not clear previous vector for task {}: {}", task.getId(), e.getMessage());
+            log.warn("Could not clear previous vector for task {}: {}", task.id(), e.getMessage());
         }
 
         embeddingStore.addAll(
@@ -91,4 +78,14 @@ public class TaskIngestionServiceImpl implements TaskIngestionService {
             java.util.List.of(segment)
         );
     }
+
+    /**
+     * Generates a stable UUID string for a given Task ID.
+     * Required by PgVectorEmbeddingStore which enforces UUID format for IDs.
+     */
+    private String getVectorId(Long taskId) {
+        return java.util.UUID.nameUUIDFromBytes(("task_" + taskId).getBytes()).toString();
+    }
 }
+
+
