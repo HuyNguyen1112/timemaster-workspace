@@ -8,6 +8,9 @@ import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+
 @Configuration
 public class McpTaskConfiguration {
 
@@ -15,8 +18,8 @@ public class McpTaskConfiguration {
                         Long userId,
                         String title,
                         String description,
-                        java.time.LocalDate targetDate,
-                        java.time.LocalTime startTime,
+                        LocalDate targetDate,
+                        LocalTime startTime,
                         Double estimatedDuration,
                         String matrixType,
                         Long categoryId,
@@ -29,7 +32,7 @@ public class McpTaskConfiguration {
         public record TaskIdUserParams(Long taskId, Long userId) {
         }
 
-        public record UserDateParams(Long userId, java.time.LocalDate targetDate) {
+        public record UserDateParams(Long userId, LocalDate targetDate) {
         }
 
         public record McpUpdateTaskParams(
@@ -60,7 +63,7 @@ public class McpTaskConfiguration {
                                                         params.force() != null && params.force());
                                         return taskService.createTask(params.userId(), request);
                                 })
-                                .description("Tạo mới một công việc (Task). Các tham số: title, targetDate (ngày thực hiện), startTime (giờ bắt đầu), estimatedDuration (thời lượng dự kiến), matrixType (Q1, Q2, Q3, Q4), force (true nếu muốn lưu đè khi trùng lịch).")
+                                .description("Tạo mới một công việc (Task). Các tham số: title, targetDate (ngày thực hiện), startTime (giờ bắt đầu), estimatedDuration (thời lượng dự kiến), matrixType (Q1, Q2, Q3, Q4), force (true nếu muốn lưu đè khi trùng lịch). LƯU Ý QUAN TRỌNG: Các trường estimatedDuration, matrixType là TÙY CHỌN (Optional).CategoryId nếu người dùng không nhắc đến, TRUYỀN null. Tuyệt đối không được hỏi lại hay yêu cầu người dùng cung cấp danh mục.")
                                 .inputType(McpCreateTaskParams.class)
                                 .build();
         }
@@ -79,7 +82,8 @@ public class McpTaskConfiguration {
         public ToolCallback mcpGetTasksByDateTool(TaskService taskService) {
                 return FunctionToolCallback
                                 .builder("mcpGetTasksByDate",
-                                                (UserDateParams params) -> taskService.getTasksByDate(params.userId(), params.targetDate()))
+                                                (UserDateParams params) -> taskService.getTasksByDate(params.userId(),
+                                                                params.targetDate()))
                                 .description("Lấy danh sách công việc (Tasks) của người dùng theo một ngày cụ thể (targetDate). Dùng tool này khi user hỏi về công việc của một ngày nhất định như 'hôm nay', 'ngày mai', hoặc một ngày cụ thể.")
                                 .inputType(UserDateParams.class)
                                 .build();

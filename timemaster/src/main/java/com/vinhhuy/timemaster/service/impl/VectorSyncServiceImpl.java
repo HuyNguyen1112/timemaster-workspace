@@ -21,7 +21,7 @@ public class VectorSyncServiceImpl implements VectorSyncService {
     @Value("${vector-store.internal-secret}")
     private String internalSecret;
 
-    private static final String AI_SERVICE_URL = "http://localhost:8081/api/ai/ingest-single";
+    private static final String AI_SERVICE_URL = "http://localhost:8082/api/ai/ingest-single";
 
     @Override
     @Async

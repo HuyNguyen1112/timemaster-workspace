@@ -1,7 +1,6 @@
 package com.vinhhuy.timemasterai.config;
 
 import com.vinhhuy.timemasterai.agent.AiMentorAgent;
-import com.vinhhuy.timemasterai.agent.QueryRouterAgent;
 import com.vinhhuy.timemasterai.prompt.MentorPromptProvider;
 import com.vinhhuy.timemasterai.security.UserContext;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
@@ -14,6 +13,7 @@ import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.DefaultMcpClient;
 import dev.langchain4j.mcp.client.transport.http.HttpMcpTransport;
+import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
@@ -54,7 +54,6 @@ public class AiMentorConfig {
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(0.1)
-                .maxRetries(0) // Disable retries to save Free Tier quota (20 req/day)
                 .build();
     }
 
@@ -63,13 +62,9 @@ public class AiMentorConfig {
             @Value("${langchain4j.google-ai-gemini.chat-model.api-key}") String apiKey) {
         return GoogleAiEmbeddingModel.builder()
                 .apiKey(apiKey)
-                .modelName("models/embedding-gecko-001") // Guaranteed 768 dimensions
+                .modelName("gemini-embedding-001") // Verified via API ListModels
+                .outputDimensionality(768) // Match existing pgvector table dimensions
                 .build();
-    }
-
-    @Bean
-    public QueryRouterAgent queryRouterAgent(ChatModel chatModel) {
-        return AiServices.create(QueryRouterAgent.class, chatModel);
     }
 
     @Bean
@@ -90,28 +85,20 @@ public class AiMentorConfig {
                 .dimension(768) // Efficient 768 dimensions
                 .createTable(true)
                 .build();
-
     }
 
     @Bean
     public ContentRetriever contentRetriever(
             EmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore,
-            EmbeddingModel embeddingModel,
-            QueryRouterAgent queryRouterAgent) {
+            EmbeddingModel embeddingModel) {
 
         return query -> {
-            // Ask AI to classify the query before calling Embedding Model
-            QueryRouterAgent.Intent intent = queryRouterAgent.classify(query.text());
-
-            if (intent == QueryRouterAgent.Intent.GREETING || intent == QueryRouterAgent.Intent.ACTION) {
-                // Skip RAG for greetings or direct tool actions to save quota and latency
-                return java.util.Collections.emptyList();
-            }
-
-            // Only proceed to RAG for INQUIRY
+            // Filter by current user to prevent cross-user data leakage
             Long currentUserId = userContext.getUserId();
             Filter userFilter = metadataKey("userId").isEqualTo(String.valueOf(currentUserId));
 
+            // minScore(0.6) naturally filters out irrelevant queries (greetings, actions)
+            // No need for a separate QueryRouterAgent call — saves 1 API call per message
             return EmbeddingStoreContentRetriever.builder()
                     .embeddingStore(embeddingStore)
                     .embeddingModel(embeddingModel)

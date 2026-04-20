@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "pomodoro_sessions")
-@Data @NoArgsConstructor @AllArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class PomodoroSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,6 +21,10 @@ public class PomodoroSession {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     private Task task;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "habit_id")
+    private Habit habit;
 
     @Column(nullable = false)
     private LocalDateTime startTime;

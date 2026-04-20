@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,13 +41,15 @@ public class TaskServiceImpl implements TaskService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
 
-        // 2. Kiểm tra ngày thực hiện (không cho phép quá khứ)
-        if (request.targetDate().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Không thể tạo công việc cho ngày trong quá khứ.");
+        // 2. Kiểm tra thời gian thực hiện (không cho phép quá khứ)
+        LocalDateTime startDateTime = LocalDateTime.of(request.targetDate(), request.startTime());
+        if (startDateTime.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Thời gian thực hiện không thể ở quá khứ.");
         }
 
         // Kiểm tra trùng lịch (Overlap)
-        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), null, request.force());
+        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), null,
+                request.force());
 
         // 3. Khởi tạo Entity Task mới
         Task task = new Task();
@@ -55,6 +58,7 @@ public class TaskServiceImpl implements TaskService {
         task.setTargetDate(request.targetDate());
         task.setStartTime(request.startTime());
         task.setEstimatedDuration(request.estimatedDuration());
+        task.setDescription(request.description());
 
         // Chuyển từ String (Q1, Q2) sang Enum
         try {
@@ -97,7 +101,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasksByDate(Long userId, java.time.LocalDate targetDate) {
+    public List<TaskResponse> getTasksByDate(Long userId, LocalDate targetDate) {
         List<Task> tasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
 
         return tasks.stream()
@@ -111,16 +115,22 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc với ID: " + taskId));
 
-        // Kiểm tra bảo mật: Tránh việc User này đi sửa công việc của User khác
+        // Kiểm tra bảo mật
         if (!task.getUser().getId().equals(userId)) {
             throw new RuntimeException("Bạn không có quyền chỉnh sửa công việc này.");
         }
 
-        task.setStatus(Task.TaskStatus.COMPLETED);
+        // Đảo trạng thái (Toggle)
+        if (task.getStatus() == Task.TaskStatus.COMPLETED) {
+            task.setStatus(Task.TaskStatus.PENDING);
+        } else {
+            task.setStatus(Task.TaskStatus.COMPLETED);
+        }
+
         Task updatedTask = taskRepository.save(task);
         TaskResponse response = taskMapper.toResponse(updatedTask);
 
-        // Notify AI of completion
+        // Notify AI of status change
         String authHeader = getAuthHeaderSafely();
         vectorSyncService.syncToAi(response, authHeader);
 
@@ -138,11 +148,10 @@ public class TaskServiceImpl implements TaskService {
             throw new RuntimeException("Bạn không có quyền xóa công việc này.");
         }
 
-        // Notify AI before deletion
+        // Notify AI before deletion (always sync, VectorSyncService handles null auth
+        // via internal secret)
         String authHeader = getAuthHeaderSafely();
-        if (authHeader != null) {
-            vectorSyncService.deleteFromAi(task.getId(), authHeader);
-        }
+        vectorSyncService.deleteFromAi(task.getId(), authHeader);
 
         taskRepository.delete(task);
     }
@@ -158,18 +167,21 @@ public class TaskServiceImpl implements TaskService {
             throw new RuntimeException("Bạn không có quyền sửa công việc này.");
         }
 
-        // Kiểm tra ngày thực hiện
-        if (request.targetDate().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Không thể cập nhật công việc vào ngày trong quá khứ.");
+        // Kiểm tra thời gian thực hiện
+        LocalDateTime startDateTime = LocalDateTime.of(request.targetDate(), request.startTime());
+        if (startDateTime.isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Thời gian thực hiện không thể ở quá khứ.");
         }
 
         // Kiểm tra trùng lịch (Overlap)
-        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), taskId, request.force());
+        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), taskId,
+                request.force());
 
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
         task.setStartTime(request.startTime());
         task.setEstimatedDuration(request.estimatedDuration());
+        task.setDescription(request.description());
 
         try {
             task.setMatrixType(Task.MatrixType.valueOf(request.matrixType().toUpperCase()));
@@ -195,8 +207,10 @@ public class TaskServiceImpl implements TaskService {
         return response;
     }
 
-    private void validateTimeOverlap(Long userId, LocalDate targetDate, LocalTime startTime, Double duration, Long excludeTaskId, boolean force) {
-        if (force) return;
+    private void validateTimeOverlap(Long userId, LocalDate targetDate, LocalTime startTime, Double duration,
+            Long excludeTaskId, boolean force) {
+        if (force)
+            return;
 
         List<Task> existingTasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
         LocalTime newStart = startTime;
@@ -213,7 +227,7 @@ public class TaskServiceImpl implements TaskService {
                 .map(t -> {
                     LocalTime exStart = t.getStartTime();
                     long totalMinutes = (long) (t.getEstimatedDuration() * 60);
-                    
+
                     String timeInfo;
                     if (newStart.isAfter(exStart) || newStart.equals(exStart)) {
                         // Tính thời gian còn lại của việc cũ tại thời điểm bắt đầu việc mới
@@ -234,7 +248,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * Lấy token an toàn từ Request. 
+     * Lấy token an toàn từ Request.
      * Tránh lỗi "No thread-bound request found" khi gọi từ MCP.
      */
     private String getAuthHeaderSafely() {
@@ -245,4 +259,3 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 }
-

@@ -18,5 +18,7 @@ public class Category {
     @Column(nullable = false)
     private String name;
 
+    private String iconName; // VD: "Briefcase", "Heart"
+
     private String colorCode; // VD: "#FF5733"
 }

@@ -1,0 +1,30 @@
+# Compiled class files
+**/target/
+**/*.class
+
+# Log files
+*.log
+*.txt
+!**/prompts/**/*.txt
+
+# Package objects
+*.jar
+*.war
+*.ear
+
+# Node modules
+**/node_modules/
+
+# Expo
+**/.expo/
+**/dist/
+
+# Env files
+.env
+.env.local
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo

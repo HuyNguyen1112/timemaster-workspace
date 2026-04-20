@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -35,11 +36,10 @@ public class TaskController {
     @GetMapping("/by-date")
     public ResponseEntity<List<TaskResponse>> getTasksByDate(
             @RequestParam Long userId,
-            @RequestParam java.time.LocalDate targetDate) {
+            @RequestParam LocalDate targetDate) {
         List<TaskResponse> tasks = taskService.getTasksByDate(userId, targetDate);
         return ResponseEntity.ok(tasks);
     }
-
 
     /**
      * API: Tạo mới một công việc

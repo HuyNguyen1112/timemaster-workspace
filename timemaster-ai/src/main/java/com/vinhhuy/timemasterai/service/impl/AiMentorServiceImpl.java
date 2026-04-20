@@ -19,11 +19,13 @@ public class AiMentorServiceImpl implements AiMentorService {
     @Override
     public MentorResponse chat(String userMessage) {
         Long userId = userContext.getUserId();
-        log.info("Orchestrating AI chat for UserID: {}", userId);
+        log.info(">>> AI ORCHESTRATION: UserID [{}] is asking: \"{}\"", userId, userMessage);
 
         try {
             // Isolation: Memory ID linked to User ID
             MentorResponse response = aiMentorAgent.chat(userId, userMessage);
+            
+            log.info("<<< AI RESPONSE for UserID [{}]: Action taken: [{}]", userId, response.actionTaken());
 
             // Robust Validation
             validateResponse(response);

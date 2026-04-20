@@ -5,6 +5,7 @@ import com.vinhhuy.timemaster.dto.CategoryResponse;
 import com.vinhhuy.timemaster.entity.Category;
 import com.vinhhuy.timemaster.entity.User;
 import com.vinhhuy.timemaster.repository.CategoryRepository;
+import com.vinhhuy.timemaster.repository.TaskRepository;
 import com.vinhhuy.timemaster.repository.UserRepository;
 import com.vinhhuy.timemaster.service.CategoryService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
 
     // Hàm tiện ích dùng chung để lấy User từ Email
     private User getUserByEmail(String email) {
@@ -35,11 +37,12 @@ public class CategoryServiceImpl implements CategoryService {
 
         Category category = new Category();
         category.setName(request.name());
+        category.setIconName(request.iconName());
         category.setColorCode(request.colorCode());
         category.setUser(user);
 
         Category savedCategory = categoryRepository.save(category);
-        return new CategoryResponse(savedCategory.getId(), savedCategory.getName(), savedCategory.getColorCode());
+        return new CategoryResponse(savedCategory.getId(), savedCategory.getName(), savedCategory.getIconName(), savedCategory.getColorCode());
     }
 
     @Override
@@ -49,7 +52,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         return categoryRepository.findByUserId(user.getId())
                 .stream()
-                .map(cat -> new CategoryResponse(cat.getId(), cat.getName(), cat.getColorCode()))
+                .map(cat -> new CategoryResponse(cat.getId(), cat.getName(), cat.getIconName(), cat.getColorCode()))
                 .collect(Collectors.toList());
     }
 
@@ -67,10 +70,11 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         category.setName(request.name());
+        category.setIconName(request.iconName());
         category.setColorCode(request.colorCode());
 
         Category updatedCategory = categoryRepository.save(category);
-        return new CategoryResponse(updatedCategory.getId(), updatedCategory.getName(), updatedCategory.getColorCode());
+        return new CategoryResponse(updatedCategory.getId(), updatedCategory.getName(), updatedCategory.getIconName(), updatedCategory.getColorCode());
     }
 
     @Override
@@ -84,6 +88,9 @@ public class CategoryServiceImpl implements CategoryService {
         if (!category.getUser().getId().equals(user.getId())) {
             throw new AccessDeniedException("403 Forbidden: Bạn không có quyền thao tác trên dữ liệu của người khác!");
         }
+
+        // Ngắt liên kết các Task với Category này trước khi xóa
+        taskRepository.updateCategoryToNull(categoryId);
 
         categoryRepository.delete(category);
     }
