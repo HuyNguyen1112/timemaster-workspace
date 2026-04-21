@@ -14,6 +14,8 @@ import com.vinhhuy.timemaster.service.TaskService;
 import com.vinhhuy.timemaster.service.VectorSyncService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
@@ -57,14 +60,17 @@ public class TaskServiceImpl implements TaskService {
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
         task.setStartTime(request.startTime());
-        task.setEstimatedDuration(request.estimatedDuration());
+        task.setEstimatedDuration(request.estimatedDuration() != null ? request.estimatedDuration() : 1.0);
         task.setDescription(request.description());
 
-        // Chuyển từ String (Q1, Q2) sang Enum
+        // Chuyển từ String (Q1, Q2) sang Enum với giá trị mặc định là Q4
+        String mType = (request.matrixType() != null && !request.matrixType().isBlank())
+                ? request.matrixType().toUpperCase()
+                : "Q4";
         try {
-            task.setMatrixType(Task.MatrixType.valueOf(request.matrixType().toUpperCase()));
+            task.setMatrixType(Task.MatrixType.valueOf(mType));
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Loại ma trận không hợp lệ. Vui lòng chọn Q1, Q2, Q3 hoặc Q4.");
+            task.setMatrixType(Task.MatrixType.Q4);
         }
 
         task.setStatus(Task.TaskStatus.PENDING); // Mặc định là đang chờ xử lý
@@ -140,20 +146,31 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public void deleteTask(Long taskId, Long userId) {
+        log.info(">>> [CORE SERVICE] Request to delete Task ID: {} from User ID: {}", taskId, userId);
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc với ID: " + taskId));
 
         // Kiểm tra bảo mật trước khi xóa
         if (!task.getUser().getId().equals(userId)) {
+            log.error(">>> [CORE SERVICE] SECURITY ALERT: User {} attempted to delete Task {} owned by {}",
+                    userId, taskId, task.getUser().getId());
             throw new RuntimeException("Bạn không có quyền xóa công việc này.");
         }
 
-        // Notify AI before deletion (always sync, VectorSyncService handles null auth
-        // via internal secret)
-        String authHeader = getAuthHeaderSafely();
-        vectorSyncService.deleteFromAi(task.getId(), authHeader);
+        try {
+            // Notify AI before deletion
+            log.info(">>> [CORE SERVICE] Notifying AI to remove Task ID: {}", task.getId());
+            String authHeader = getAuthHeaderSafely();
+            vectorSyncService.deleteFromAi(task.getId(), authHeader);
 
-        taskRepository.delete(task);
+            log.info(">>> [CORE SERVICE] Executing DB delete for Task ID: {}", taskId);
+            taskRepository.delete(task);
+            log.info(">>> [CORE SERVICE] DELETION SUCCESSFUL in DB for Task ID: {}", taskId);
+        } catch (Exception e) {
+            log.error(">>> [CORE SERVICE] DELETION FAILED for Task ID: {}. Reason: {}", taskId, e.getMessage(), e);
+            throw e; // Trigger Rollback
+        }
     }
 
     @Override
@@ -180,13 +197,16 @@ public class TaskServiceImpl implements TaskService {
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
         task.setStartTime(request.startTime());
-        task.setEstimatedDuration(request.estimatedDuration());
+        task.setEstimatedDuration(request.estimatedDuration() != null ? request.estimatedDuration() : 1.0);
         task.setDescription(request.description());
 
+        String mType = (request.matrixType() != null && !request.matrixType().isBlank())
+                ? request.matrixType().toUpperCase()
+                : "Q4";
         try {
-            task.setMatrixType(Task.MatrixType.valueOf(request.matrixType().toUpperCase()));
+            task.setMatrixType(Task.MatrixType.valueOf(mType));
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Loại ma trận không hợp lệ.");
+            task.setMatrixType(Task.MatrixType.Q4);
         }
 
         if (request.categoryId() != null) {

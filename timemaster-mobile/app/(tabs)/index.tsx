@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { Plus, LayoutGrid, ChevronRight, Briefcase, Heart, User, BookOpen, Star, Coffee, Gamepad2, Calendar } from 'lucide-react-native';
 import AddTaskModal from '../../components/AddTaskModal';
@@ -12,6 +12,7 @@ import { categoryService, Category } from '../../services/category.service';
 import { notificationService } from '../../services/notification.service';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -98,12 +99,58 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [fetchTasks, fetchCategories]);
 
+  const searchParams = useLocalSearchParams();
+
+  const lastResponse = Notifications.useLastNotificationResponse();
+  
   useFocusEffect(
     useCallback(() => {
       fetchTasks();
       fetchCategories();
     }, [fetchTasks, fetchCategories])
   );
+
+  const handleDeepLink = useCallback((tid: number) => {
+    const openTask = (t: any) => {
+      setSelectedTaskForDetail({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        matrix: t.matrixType || t.matrix,
+        time: t.startTime ? t.startTime.substring(0, 5) : (t.time || 'Anytime'),
+        done: (t.status === 'COMPLETED' || t.done),
+        category: t.categoryName || t.category || 'General',
+        categoryId: t.categoryId,
+        date: t.targetDate || t.date,
+        duration: t.estimatedDuration ? Math.round(t.estimatedDuration * 60) : (t.duration || 60)
+      });
+      setShowDetailModal(true);
+    };
+
+    // Always fetch fresh for deep link to ensure we have the correct data regardless of current date
+    taskService.getTasks(user?.userId || 0).then(allTasks => {
+      const t = allTasks.find(item => item.id === tid);
+      if (t) openTask(t);
+    }).catch(err => console.error('Deep link fetch failed', err));
+  }, [user?.userId]);
+
+  // Handle both URL params and native notification responses
+  useEffect(() => {
+    const tidFromUrl = searchParams.taskId ? Number(searchParams.taskId) : null;
+    const tidFromNotify = lastResponse?.notification.request.content.data?.taskId;
+
+    const finalTid = tidFromNotify || tidFromUrl;
+
+    if (finalTid) {
+      console.log('[Dashboard] Deep link triggered for taskId:', finalTid);
+      handleDeepLink(Number(finalTid));
+      
+      // Clear URL param if it exists
+      if (searchParams.taskId) {
+        router.setParams({ taskId: undefined });
+      }
+    }
+  }, [searchParams.taskId, lastResponse, user?.userId]);
 
   const toggleTask = async (id: number) => {
     try {

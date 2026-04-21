@@ -21,6 +21,9 @@ public class HabitMapper {
                 .createdAt(habit.getCreatedAt())
                 .currentStreak(0)
                 .completedToday(false)
+                .verificationSource(habit.getVerificationSource() != null ? habit.getVerificationSource().name() : "NONE")
+                .isSystemHabit(habit.isSystemHabit())
+                .progressToday(0)
                 .build();
     }
 }

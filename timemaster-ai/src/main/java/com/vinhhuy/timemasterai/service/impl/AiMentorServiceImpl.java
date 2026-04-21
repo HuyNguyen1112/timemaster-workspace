@@ -8,6 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import dev.langchain4j.rag.content.Content;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -15,6 +20,7 @@ public class AiMentorServiceImpl implements AiMentorService {
 
     private final AiMentorAgent aiMentorAgent;
     private final UserContext userContext;
+    private final ContentRetriever contentRetriever;
 
     @Override
     public MentorResponse chat(String userMessage) {
@@ -22,10 +28,33 @@ public class AiMentorServiceImpl implements AiMentorService {
         log.info(">>> AI ORCHESTRATION: UserID [{}] is asking: \"{}\"", userId, userMessage);
 
         try {
+            // Manual RAG Augmentation: Retrieve context and merge into UserMessage
+            // This prevents Gemini "message sequence" errors (400 Bad Request)
+            List<Content> contents = contentRetriever.retrieve(dev.langchain4j.rag.query.Query.from(userMessage));
+            String augmentedMessage = userMessage;
+
+            if (contents != null && !contents.isEmpty()) {
+                String context = contents.stream()
+                        .map(c -> c.textSegment().text())
+                        .collect(Collectors.joining("\n---\n"));
+                
+                log.info(">>> RAG: Found {} relevant context segments. Context content: \n{}", contents.size(), context);
+                
+                augmentedMessage = String.format(
+                    "Dưới đây là một số thông tin từ lịch sử công việc của người dùng:\n" +
+                    "----------------------\n" +
+                    "%s\n" +
+                    "----------------------\n" +
+                    "Dựa trên thông tin trên, hãy trả lời câu hỏi sau:\n%s", 
+                    context, userMessage
+                );
+            }
+
             // Isolation: Memory ID linked to User ID
-            MentorResponse response = aiMentorAgent.chat(userId, userMessage);
+            MentorResponse response = aiMentorAgent.chat(userId, augmentedMessage);
             
-            log.info("<<< AI RESPONSE for UserID [{}]: Action taken: [{}]", userId, response.actionTaken());
+            log.info("<<< AI RESPONSE for UserID [{}]: Message: [{}], Action taken: [{}]", 
+                    userId, response.message(), response.actionTaken());
 
             // Robust Validation
             validateResponse(response);

@@ -12,6 +12,8 @@ public interface HabitService {
 
     List<HabitResponse> getHabitsByUser(Long userId);
 
+    HabitResponse getHabitById(Long habitId, Long userId);
+
     List<HabitDailyProgress> getHabitsByDate(Long userId, LocalDate date);
 
     HabitResponse updateHabit(Long habitId, Long userId, HabitRequest request);

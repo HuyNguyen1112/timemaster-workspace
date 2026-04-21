@@ -4,10 +4,13 @@ import { Droplets, Book, Flame, Plus, ChevronRight, Zap, Target, Dumbbell, Code,
 import AddHabitModal from '../../components/AddHabitModal';
 import { useAuth } from '../../context/AuthContext';
 import { habitService, Habit } from '../../services/habit.service';
-import { useFocusEffect } from 'expo-router';
+import { healthService } from '../../services/health.service';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Lock } from 'lucide-react-native';
 
 export default function HabitsScreen() {
     const { user } = useAuth();
+    const router = useRouter();
     const [habits, setHabits] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -36,10 +39,60 @@ export default function HabitsScreen() {
         }
     }, [user]);
 
+    const syncHealthHabits = useCallback(async (currentHabits: Habit[]) => {
+        if (!user || !healthService.isAvailable()) return;
+
+        try {
+            const initialized = await healthService.initialize();
+            if (!initialized) return;
+
+            const hasPermissions = await healthService.requestPermissions();
+            if (!hasPermissions) return;
+
+            const today = new Date().toISOString().split('T')[0];
+            const metrics = await healthService.getDailyMetrics(today);
+
+            for (const habit of currentHabits) {
+                if (habit.verificationSource === 'GOOGLE_FIT_STEPS') {
+                    await habitService.checkIn(user.userId, habit.id, {
+                        logDate: today,
+                        progressValue: metrics.steps,
+                        completed: metrics.steps >= (habit.dailyGoal || 0)
+                    });
+                } else if (habit.verificationSource === 'GOOGLE_FIT_DISTANCE') {
+                    await habitService.checkIn(user.userId, habit.id, {
+                        logDate: today,
+                        progressValue: Math.round(metrics.distance * 100) / 100,
+                        completed: metrics.distance >= (habit.dailyGoal || 0)
+                    });
+                }
+            }
+            // Reload after sync
+            const updatedData = await habitService.getHabits(user.userId);
+            setHabits(updatedData);
+        } catch (error) {
+            console.error('Health sync failed:', error);
+        }
+    }, [user]);
+
     useFocusEffect(
         useCallback(() => {
-            loadHabits();
-        }, [loadHabits])
+            const fetchAndSync = async () => {
+                if (!user) return;
+                setLoading(true);
+                try {
+                    const data = await habitService.getHabits(user.userId);
+                    setHabits(data);
+                    // Trigger sync in background
+                    syncHealthHabits(data);
+                } catch (error) {
+                    console.error('Failed to load habits:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchAndSync();
+        }, [user, syncHealthHabits])
     );
 
     const addHabit = async (newHabit: any) => {
@@ -89,17 +142,37 @@ export default function HabitsScreen() {
                     </View>
                 ) : (
                     habits.map(habit => (
-                        <TouchableOpacity key={habit.id} style={styles.habitCard}>
+                        <TouchableOpacity 
+                            key={habit.id} 
+                            style={styles.habitCard}
+                            onPress={() => router.push(`/habit/${habit.id}`)}
+                        >
                             <View style={[styles.iconBox, { backgroundColor: (habit.colorCode || '#8b5cf6') + '15' }]}>
                                 {habit.icon && iconMap[habit.icon] 
                                     ? React.cloneElement(iconMap[habit.icon] as React.ReactElement, { color: habit.colorCode || '#8b5cf6' } as any) 
                                     : <Target color={habit.colorCode || '#8b5cf6'} />}
                             </View>
                             <View style={styles.habitInfo}>
-                                <Text style={styles.habitTitle}>{habit.name}</Text>
-                                <Text style={styles.habitSub}>{habit.currentStreak} day streak • Goal: {habit.dailyGoal} {habit.unit}</Text>
-                                <View style={styles.progressBar}>
-                                    <View style={[styles.progressFill, { width: `${(habit.completedToday ? 1 : 0) * 100}%`, backgroundColor: habit.colorCode || '#8b5cf6' }]} />
+                                <View style={styles.titleRow}>
+                                    <Text style={styles.habitTitle}>{habit.name}</Text>
+                                    {habit.isSystemHabit && <Lock size={12} color="#9ca3af" style={{ marginLeft: 4 }} />}
+                                </View>
+                                <Text style={styles.habitSub}>
+                                    {habit.currentStreak} day streak • KPI: {habit.dailyGoal} {habit.unit}
+                                </Text>
+                                <View style={styles.progressContainer}>
+                                    <View style={styles.progressBar}>
+                                        <View style={[
+                                            styles.progressFill, 
+                                            { 
+                                                width: `${Math.min(100, ((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%`,
+                                                backgroundColor: habit.colorCode || '#8b5cf6' 
+                                            }
+                                        ]} />
+                                    </View>
+                                    {habit.verificationSource !== 'NONE' && (
+                                        <Text style={styles.syncTag}>AUTO-SYNC</Text>
+                                    )}
                                 </View>
                             </View>
                             <ChevronRight size={20} color="#4b5563" />
@@ -210,6 +283,25 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#ffffff',
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    progressContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    syncTag: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        color: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.1)',
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        borderRadius: 4,
+        textTransform: 'uppercase',
     },
     habitSub: {
         fontSize: 12,

@@ -33,3 +33,23 @@ const addAuthToken = async (config: any) => {
 
 coreApi.interceptors.request.use(addAuthToken);
 aiApi.interceptors.request.use(addAuthToken);
+
+// Cleanup callback for unauthorized requests
+let unauthorizedCallback: (() => void) | null = null;
+
+export const setUnauthorizedCallback = (callback: () => void) => {
+  unauthorizedCallback = callback;
+};
+
+const handleUnauthorized = async (error: any) => {
+  if (error.response?.status === 401) {
+    console.log('[API] Unauthorized access detected, triggering logout...');
+    if (unauthorizedCallback) {
+      unauthorizedCallback();
+    }
+  }
+  return Promise.reject(error);
+};
+
+coreApi.interceptors.response.use((response) => response, handleUnauthorized);
+aiApi.interceptors.response.use((response) => response, handleUnauthorized);

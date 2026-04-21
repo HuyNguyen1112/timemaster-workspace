@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService, UserData } from '../services/auth.service';
+import { setUnauthorizedCallback } from '../services/api.service';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -10,7 +11,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadStorageData();
+    setUnauthorizedCallback(signOut);
   }, []);
 
   async function loadStorageData() {

@@ -30,6 +30,12 @@ public class HabitController {
         return ResponseEntity.ok(habitService.getHabitsByUser(userId));
     }
 
+    @GetMapping("/{habitId}")
+    public ResponseEntity<HabitResponse> getHabitById(@PathVariable Long habitId,
+            @RequestHeader("userId") Long userId) {
+        return ResponseEntity.ok(habitService.getHabitById(habitId, userId));
+    }
+
     @PutMapping("/{habitId}")
     public ResponseEntity<HabitResponse> updateHabit(@PathVariable Long habitId,
             @RequestHeader("userId") Long userId,

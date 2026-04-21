@@ -39,10 +39,29 @@ public class Habit {
     @Column(nullable = false)
     private Frequency frequency = Frequency.DAILY;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_source")
+    private VerificationSource verificationSource = VerificationSource.NONE;
+
+    @Column(name = "is_system_habit")
+    private Boolean isSystemHabit = false;
+
+    public Boolean isSystemHabit() {
+        return isSystemHabit;
+    }
+
+    public void setSystemHabit(Boolean isSystemHabit) {
+        this.isSystemHabit = isSystemHabit;
+    }
+
     @Column(updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum Frequency {
         DAILY, WEEKLY
+    }
+
+    public enum VerificationSource {
+        NONE, GOOGLE_FIT_STEPS, GOOGLE_FIT_DISTANCE
     }
 }

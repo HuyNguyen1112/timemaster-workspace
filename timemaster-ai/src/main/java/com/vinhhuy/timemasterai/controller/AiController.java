@@ -19,11 +19,6 @@ import dev.langchain4j.mcp.client.McpClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * AI Control Center.
- * Handles incoming chat requests and tool testing.
- * Secured by JwtInterceptor. Relies on UserContext for session state.
- */
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
@@ -67,9 +62,6 @@ public class AiController {
             @RequestBody com.vinhhuy.timemasterai.dto.TaskResponse task,
             @RequestParam(required = false) Long userId) {
 
-        // Priority 1: From query param (explicit)
-        // Priority 2: From JWT context (standard)
-        // Priority 3: From Task body (Data Push flow)
         Long effectiveUserId = userId;
         if (effectiveUserId == null) {
             effectiveUserId = userContext.getUserId();
@@ -79,7 +71,7 @@ public class AiController {
         }
 
         log.info("Triggering real-time sync for Task ID: {} (UserID: {})", task.id(), effectiveUserId);
-        
+
         if (effectiveUserId == null) {
             return ResponseEntity.status(401).body("Missing User ID for ingestion");
         }
@@ -97,7 +89,6 @@ public class AiController {
         taskIngestionService.removeTaskFromVectorStore(taskId);
         return ResponseEntity.ok("Removal complete for Task: " + taskId);
     }
-
 
     @GetMapping("/testTools")
     public ResponseEntity<String> testTools() {

@@ -85,7 +85,8 @@ public class PomodoroServiceImpl implements PomodoroService {
             HabitCheckInRequest checkInReq = new HabitCheckInRequest(
                     savedSession.getStartTime().toLocalDate(),
                     savedSession.getDurationMinutes(),
-                    null);
+                    null,
+                    true);
             habitService.checkIn(request.habitId(), userId, checkInReq);
         }
 

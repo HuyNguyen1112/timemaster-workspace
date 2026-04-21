@@ -7,10 +7,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     // Bắt lỗi Validation (khi người dùng nhập thiếu dữ liệu)
@@ -25,10 +28,23 @@ public class GlobalExceptionHandler {
 
     // Bắt các lỗi Logic nghiệp vụ (Ví dụ: Không tìm thấy User, không tìm thấy Task...)
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handleRuntimeExceptions(RuntimeException ex) {
-        Map<String, String> error = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> handleRuntimeExceptions(RuntimeException ex) {
+        log.error("Runtime exception: ", ex);
+        Map<String, Object> error = new HashMap<>();
         error.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneralExceptions(Exception ex) {
+        log.error("Unexpected error: ", ex);
+        Map<String, Object> error = new HashMap<>();
+        error.put("message", "An unexpected error occurred");
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -25,4 +25,16 @@ public class HabitResponse {
     // Additional tracking stats for UI (Optional)
     private Integer currentStreak;
     private Boolean completedToday;
+    private java.util.List<HabitLogResponse> recentLogs;
+    private String verificationSource;
+    private Boolean isSystemHabit;
+
+    public Boolean isSystemHabit() {
+        return isSystemHabit;
+    }
+
+    public void setSystemHabit(Boolean isSystemHabit) {
+        this.isSystemHabit = isSystemHabit;
+    }
+    private Integer progressToday;
 }

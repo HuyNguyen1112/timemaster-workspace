@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, TextInput, Keyboard, Alert } from 'react-native';
 import { BrainCircuit, Play, Pause, ChevronRight, Square, Settings2, Plus, Minus, Check, Target, Zap } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { taskService } from '../../services/task.service';
 import { habitService } from '../../services/habit.service';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 export default function FocusScreen() {
     const { user } = useAuth();
+    const { habitId, habitTitle } = useLocalSearchParams();
     const [isPlaying, setIsPlaying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isCustomMode, setIsCustomMode] = useState(false);
@@ -15,6 +16,10 @@ export default function FocusScreen() {
     const [showPicker, setShowPicker] = useState(false);
     const [loading, setLoading] = useState(false);
     const [todayItems, setTodayItems] = useState<any[]>([]);
+    const [isEditingTime, setIsEditingTime] = useState(false);
+    const [inputValue, setInputValue] = useState('');
+    const [initialTime, setInitialTime] = useState(25 * 60);
+    const [lastSyncTime, setLastSyncTime] = useState(0); // To prevent double sync
 
     const loadFocusData = useCallback(async () => {
         if (!user) return;
@@ -26,22 +31,26 @@ export default function FocusScreen() {
                 habitService.getHabits(user.userId)
             ]);
 
-            const mappedTasks = tasks.map(t => ({
-                id: `task-${t.id}`,
-                realId: t.id,
-                title: t.title,
-                type: 'TASK',
-                color: '#8b5cf6'
-            }));
-
-            const mappedHabits = habits.map(h => ({
-                id: `habit-${h.id}`,
-                realId: h.id,
-                title: h.name,
-                type: 'HABIT',
-                color: '#22c55e'
-            }));
-
+            const mappedTasks = tasks
+                .filter(t => t.status !== 'COMPLETED')
+                .map(t => ({
+                    id: `task-${t.id}`,
+                    realId: t.id,
+                    title: t.title,
+                    type: 'TASK',
+                    color: '#8b5cf6'
+                }));
+    
+            const mappedHabits = habits
+                .filter(h => !h.completedToday)
+                .map(h => ({
+                    id: `habit-${h.id}`,
+                    realId: h.id,
+                    title: h.name,
+                    type: 'HABIT',
+                    color: '#22c55e'
+                }));
+    
             setTodayItems([...mappedTasks, ...mappedHabits]);
         } catch (error) {
             console.error('Failed to load focus data:', error);
@@ -53,7 +62,18 @@ export default function FocusScreen() {
     useFocusEffect(
         useCallback(() => {
             loadFocusData();
-        }, [loadFocusData])
+            
+            // Handle automatic selection from Habit Detail
+            if (habitId && habitTitle) {
+                setSelectedEntity({
+                    id: `habit-${habitId}`,
+                    realId: Number(habitId),
+                    title: habitTitle as string,
+                    type: 'HABIT',
+                    color: '#22c55e'
+                });
+            }
+        }, [loadFocusData, habitId, habitTitle])
     );
 
     useEffect(() => {
@@ -62,11 +82,36 @@ export default function FocusScreen() {
             interval = setInterval(() => {
                 setTimeLeft(prev => prev - 1);
             }, 1000);
-        } else if (timeLeft === 0) {
+        } else if (timeLeft === 0 && isPlaying) {
             setIsPlaying(false);
+            handleSessionComplete();
         }
         return () => clearInterval(interval);
     }, [isPlaying, timeLeft]);
+
+    const handleSessionComplete = async () => {
+        if (!user || selectedEntity.id === 'none') return;
+        
+        // Prevent accidental double sync
+        const now = Date.now();
+        if (now - lastSyncTime < 2000) return;
+        setLastSyncTime(now);
+
+        const sessionMinutes = Math.floor(initialTime / 60);
+        
+        if (selectedEntity.type === 'HABIT') {
+            try {
+                await habitService.checkIn(user.userId, selectedEntity.realId, {
+                    logDate: new Date().toISOString().split('T')[0],
+                    progressValue: sessionMinutes,
+                    isIncrement: true
+                });
+                Alert.alert('Session Complete!', `Added ${sessionMinutes} mins to your habit: ${selectedEntity.title}`);
+            } catch (error) {
+                console.error('Failed to sync habit progress:', error);
+            }
+        }
+    };
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -79,19 +124,43 @@ export default function FocusScreen() {
         const newTime = timeLeft + amount;
         if (newTime > 0 && newTime <= 120 * 60) {
             setTimeLeft(newTime);
+            setInitialTime(newTime); // Update initial time when adjusted
         }
     };
 
     const resetTimer = () => {
         setIsPlaying(false);
-        setTimeLeft(isCustomMode ? timeLeft : 25 * 60);
+        setTimeLeft(isCustomMode ? initialTime : 25 * 60);
     };
 
     const toggleMode = () => {
         if (isPlaying) return;
         const newMode = !isCustomMode;
         setIsCustomMode(newMode);
-        if (!newMode) setTimeLeft(25 * 60);
+        if (!newMode) {
+            setTimeLeft(25 * 60);
+            setIsEditingTime(false);
+        }
+    };
+
+    const handleTimeSubmit = () => {
+        const mins = parseInt(inputValue);
+        if (!isNaN(mins) && mins > 0 && mins <= 180) {
+            const newTime = mins * 60;
+            setTimeLeft(newTime);
+            setInitialTime(newTime); // Update initial time when submitted from keyboard
+        }
+        setIsEditingTime(false);
+        Keyboard.dismiss();
+    };
+
+    const startEditing = () => {
+        if (isPlaying) return;
+        if (!isCustomMode) {
+            setIsCustomMode(true);
+        }
+        setInputValue(Math.floor(timeLeft / 60).toString());
+        setIsEditingTime(true);
     };
 
     return (
@@ -130,12 +199,33 @@ export default function FocusScreen() {
                 )}
 
                 <View style={styles.timerContainer}>
-                    <View style={[styles.timerRing, isPlaying && styles.timerRingActive]}>
-                        <Text style={styles.timeText}>{formatTime(timeLeft)}</Text>
+                    <TouchableOpacity 
+                        style={[styles.timerRing, isPlaying && styles.timerRingActive]}
+                        activeOpacity={0.7} 
+                        onPress={startEditing} 
+                        disabled={isPlaying || isEditingTime}
+                    >
+                        {isEditingTime ? (
+                            <View style={styles.inputWrapper}>
+                                <TextInput
+                                    style={styles.timeInput}
+                                    value={inputValue}
+                                    onChangeText={setInputValue}
+                                    keyboardType="numeric"
+                                    autoFocus
+                                    onBlur={handleTimeSubmit}
+                                    onSubmitEditing={handleTimeSubmit}
+                                    maxLength={3}
+                                />
+                                <Text style={styles.minLabel}>min</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.timeText}>{formatTime(timeLeft)}</Text>
+                        )}
                         <View style={styles.typeBadge}>
                             <Text style={styles.typeBadgeText}>{selectedEntity.type}</Text>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 </View>
 
                 {isCustomMode && !isPlaying && (
@@ -294,20 +384,23 @@ const styles = StyleSheet.create({
         height: 260,
     },
     timerRing: {
-        flex: 1,
-        borderRadius: 130,
+        width: 260,
+        height: 260,
+        borderRadius: 999,
         borderWidth: 2,
         borderColor: 'rgba(255,255,255,0.1)',
+        borderStyle: 'solid',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.02)',
+        overflow: 'hidden',
     },
     timerRingActive: {
         borderColor: '#a855f7',
+        borderWidth: 3,
         shadowColor: '#a855f7',
         shadowOpacity: 0.8,
         shadowRadius: 40,
-        elevation: 20,
     },
     timeText: {
         fontSize: 64,
@@ -413,5 +506,24 @@ const styles = StyleSheet.create({
         color: '#f3f4f6',
         fontSize: 16,
         flex: 1,
+    },
+    // Input Styles
+    inputWrapper: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    timeInput: {
+        fontSize: 80,
+        fontWeight: '900',
+        color: '#ffffff',
+        textAlign: 'center',
+        minWidth: 120,
+    },
+    minLabel: {
+        color: '#a855f7',
+        fontSize: 14,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        marginTop: -10,
     }
 });

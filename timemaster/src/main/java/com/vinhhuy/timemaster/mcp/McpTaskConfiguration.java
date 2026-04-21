@@ -3,6 +3,7 @@ package com.vinhhuy.timemaster.mcp;
 import com.vinhhuy.timemaster.dto.TaskRequest;
 import com.vinhhuy.timemaster.service.TaskService;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Configuration
+@Slf4j
 public class McpTaskConfiguration {
 
         public record McpCreateTaskParams(
@@ -52,6 +54,7 @@ public class McpTaskConfiguration {
         public ToolCallback mcpCreateTaskTool(TaskService taskService) {
                 return FunctionToolCallback
                                 .builder("mcpCreateTask", (McpCreateTaskParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpCreateTask]: userId={}, title={}", params.userId(), params.title());
                                         TaskRequest request = new TaskRequest(
                                                         params.title(),
                                                         params.description(),
@@ -63,7 +66,7 @@ public class McpTaskConfiguration {
                                                         params.force() != null && params.force());
                                         return taskService.createTask(params.userId(), request);
                                 })
-                                .description("Tạo mới một công việc (Task). Các tham số: title, targetDate (ngày thực hiện), startTime (giờ bắt đầu), estimatedDuration (thời lượng dự kiến), matrixType (Q1, Q2, Q3, Q4), force (true nếu muốn lưu đè khi trùng lịch). LƯU Ý QUAN TRỌNG: Các trường estimatedDuration, matrixType là TÙY CHỌN (Optional).CategoryId nếu người dùng không nhắc đến, TRUYỀN null. Tuyệt đối không được hỏi lại hay yêu cầu người dùng cung cấp danh mục.")
+                                .description("Tạo mới một công việc (Task). BẮT BUỘC cung cấp userId (lấy từ USER_CONTEXT_JSON). Các tham số khác: title, targetDate (ngày thực hiện), startTime (giờ bắt đầu), estimatedDuration (thời lượng dự kiến), matrixType (Q1, Q2, Q3, Q4), force (true nếu muốn lưu đè khi trùng lịch). LƯU Ý: estimatedDuration và matrixType là TÙY CHỌN, AI tự dự đoán dựa trên tính chất công việc.")
                                 .inputType(McpCreateTaskParams.class)
                                 .build();
         }
@@ -71,9 +74,11 @@ public class McpTaskConfiguration {
         @Bean
         public ToolCallback mcpGetTasksTool(TaskService taskService) {
                 return FunctionToolCallback
-                                .builder("mcpGetTasks",
-                                                (UserIdParam params) -> taskService.getAllTasksByUser(params.userId()))
-                                .description("Lấy danh sách TẤT CẢ công việc (Tasks) của người dùng hiện tại dựa vào userId.")
+                                .builder("mcpGetTasks", (UserIdParam params) -> {
+                                        log.info(">>> MCP TOOL [mcpGetTasks]: userId={}", params.userId());
+                                        return taskService.getAllTasksByUser(params.userId());
+                                })
+                                .description("Lấy danh sách TẤT CẢ công việc của người dùng hiện tại. BẮT BUỘC cung cấp userId (lấy từ USER_CONTEXT_JSON).")
                                 .inputType(UserIdParam.class)
                                 .build();
         }
@@ -81,10 +86,11 @@ public class McpTaskConfiguration {
         @Bean
         public ToolCallback mcpGetTasksByDateTool(TaskService taskService) {
                 return FunctionToolCallback
-                                .builder("mcpGetTasksByDate",
-                                                (UserDateParams params) -> taskService.getTasksByDate(params.userId(),
-                                                                params.targetDate()))
-                                .description("Lấy danh sách công việc (Tasks) của người dùng theo một ngày cụ thể (targetDate). Dùng tool này khi user hỏi về công việc của một ngày nhất định như 'hôm nay', 'ngày mai', hoặc một ngày cụ thể.")
+                                .builder("mcpGetTasksByDate", (UserDateParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpGetTasksByDate]: userId={}, date={}", params.userId(), params.targetDate());
+                                        return taskService.getTasksByDate(params.userId(), params.targetDate());
+                                })
+                                .description("Lấy danh sách công việc của người dùng theo một ngày cụ thể (targetDate). BẮT BUỘC cung cấp userId (lấy từ USER_CONTEXT_JSON).")
                                 .inputType(UserDateParams.class)
                                 .build();
         }
@@ -92,10 +98,11 @@ public class McpTaskConfiguration {
         @Bean
         public ToolCallback mcpCompleteTaskTool(TaskService taskService) {
                 return FunctionToolCallback
-                                .builder("mcpCompleteTask",
-                                                (TaskIdUserParams params) -> taskService.completeTask(params.taskId(),
-                                                                params.userId()))
-                                .description("Đánh dấu hoàn thành một công việc (Task) bằng taskId và userId hợp lệ.")
+                                .builder("mcpCompleteTask", (TaskIdUserParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpCompleteTask]: taskId={}, userId={}", params.taskId(), params.userId());
+                                        return taskService.completeTask(params.taskId(), params.userId());
+                                })
+                                .description("Đánh dấu hoàn thành một công việc. BẮT BUỘC cung cấp taskId và userId (lấy từ USER_CONTEXT_JSON).")
                                 .inputType(TaskIdUserParams.class)
                                 .build();
         }
@@ -104,10 +111,11 @@ public class McpTaskConfiguration {
         public ToolCallback mcpDeleteTaskTool(TaskService taskService) {
                 return FunctionToolCallback
                                 .builder("mcpDeleteTask", (TaskIdUserParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpDeleteTask]: taskId={}, userId={}", params.taskId(), params.userId());
                                         taskService.deleteTask(params.taskId(), params.userId());
                                         return "Đã xóa thành công Task ID: " + params.taskId();
                                 })
-                                .description("Xóa một công việc (Task) vĩnh viễn khỏi hệ thống bằng taskId và userId hợp lệ.")
+                                .description("Xóa một công việc vĩnh viễn. BẮT BUỘC cung cấp taskId và userId (lấy từ USER_CONTEXT_JSON).")
                                 .inputType(TaskIdUserParams.class)
                                 .build();
         }
@@ -116,6 +124,7 @@ public class McpTaskConfiguration {
         public ToolCallback mcpUpdateTaskTool(TaskService taskService) {
                 return FunctionToolCallback
                                 .builder("mcpUpdateTask", (McpUpdateTaskParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpUpdateTask]: taskId={}, userId={}", params.taskId(), params.userId());
                                         TaskRequest request = new TaskRequest(
                                                         params.title(),
                                                         params.description(),
@@ -127,7 +136,7 @@ public class McpTaskConfiguration {
                                                         params.force() != null && params.force());
                                         return taskService.updateTask(params.taskId(), params.userId(), request);
                                 })
-                                .description("Cập nhật lại thời gian, tiêu đề, hoặc phân loại của một công việc (Task) đã tồn tại. Dùng force=true nếu muốn lưu đè khi bị trùng lịch.")
+                                .description("Cập nhật lại công việc đã tồn tại. BẮT BUỘC cung cấp taskId và userId (lấy từ USER_CONTEXT_JSON).")
                                 .inputType(McpUpdateTaskParams.class)
                                 .build();
         }

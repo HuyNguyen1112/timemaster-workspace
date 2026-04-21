@@ -20,16 +20,13 @@ import java.time.LocalDate;
 public class UserContext {
 
     private Long userId;
-    
+
     @Getter
     private final String currentDate = LocalDate.now().toString();
-    
+
     @Getter
     private final String dayOfWeek = LocalDate.now().getDayOfWeek().name();
 
-    /**
-     * Serialize the context to a safe JSON string to prevent Prompt Injection (Point 4).
-     */
     public String toJson() {
         try {
             return new ObjectMapper().writeValueAsString(this);

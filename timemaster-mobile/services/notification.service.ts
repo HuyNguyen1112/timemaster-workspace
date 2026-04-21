@@ -23,9 +23,7 @@ class NotificationService {
     if (Platform.OS === 'android') {
       const settings = (await Notifications.getPermissionsAsync()) as any;
       if (!settings.android?.allowsExactAlarms) {
-        console.log('[Notification] Exact alarms not allowed, requesting permissions...');
-        // Note: SCHEDULE_EXACT_ALARM is just a permission, on Android 12+ it's 
-        // usually granted if added to manifest, but we log for debug.
+        console.log('[Notification] Exact alarms not allowed. Please check system settings if alarms are late.');
       }
 
       await Notifications.setNotificationChannelAsync('tm-alarms', {
@@ -168,6 +166,19 @@ class NotificationService {
       console.error('Error parsing notification date:', e);
       return null;
     }
+  }
+
+  // Singleton storage for the last task ID clicked from a notification
+  private lastClickedTaskId: number | null = null;
+
+  setLastClickedTaskId(id: number) {
+    this.lastClickedTaskId = id;
+  }
+
+  consumeLastClickedTaskId(): number | null {
+    const id = this.lastClickedTaskId;
+    this.lastClickedTaskId = null; // Clear after consuming
+    return id;
   }
 }
 
