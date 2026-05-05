@@ -22,6 +22,7 @@ public class VectorSyncServiceImpl implements VectorSyncService {
     private String internalSecret;
 
     private static final String AI_SERVICE_URL = "http://localhost:8082/api/ai/ingest-single";
+    private static final String HABIT_INGEST_URL = "http://localhost:8082/api/ai/ingest-habit";
 
     @Override
     @Async
@@ -70,6 +71,47 @@ public class VectorSyncServiceImpl implements VectorSyncService {
             log.info("Successfully notified AI module to delete Task ID: {}", taskId);
         } catch (Exception e) {
             log.warn("Failed to remove Task ID: {} from AI. Error: {}", taskId, e.getMessage());
+        }
+    }
+
+    @Override
+    @Async
+    public void syncHabitToAi(com.vinhhuy.timemaster.dto.HabitResponse habit, String authToken) {
+        log.info("Async sync for Habit ID: {} triggered.", habit.getId());
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            if (authToken != null && !authToken.isEmpty()) {
+                headers.set("Authorization", authToken);
+            } else {
+                headers.set("X-Internal-Secret", internalSecret);
+            }
+
+            HttpEntity<com.vinhhuy.timemaster.dto.HabitResponse> entity = new HttpEntity<>(habit, headers);
+            restTemplate.postForObject(HABIT_INGEST_URL, entity, String.class);
+            log.info("Successfully pushed Habit data to AI module for Habit ID: {}", habit.getId());
+        } catch (Exception e) {
+            log.warn("Failed to sync Habit ID: {} to AI. Error: {}", habit.getId(), e.getMessage());
+        }
+    }
+
+    @Override
+    @Async
+    public void deleteHabitFromAi(Long habitId, String authToken) {
+        log.info("Async delete for Habit ID: {} triggered.", habitId);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            if (authToken != null && !authToken.isEmpty()) {
+                headers.set("Authorization", authToken);
+            } else {
+                headers.set("X-Internal-Secret", internalSecret);
+            }
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            String url = HABIT_INGEST_URL + "?habitId=" + habitId;
+            restTemplate.exchange(url, org.springframework.http.HttpMethod.DELETE, entity, String.class);
+            log.info("Successfully notified AI module to delete Habit ID: {}", habitId);
+        } catch (Exception e) {
+            log.warn("Failed to remove Habit ID: {} from AI. Error: {}", habitId, e.getMessage());
         }
     }
 }

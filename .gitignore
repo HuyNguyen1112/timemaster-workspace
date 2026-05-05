@@ -9,6 +9,7 @@
 
 # Package objects
 *.jar
+!gradle-wrapper.jar
 *.war
 *.ear
 

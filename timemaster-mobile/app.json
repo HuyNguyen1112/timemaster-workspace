@@ -15,8 +15,7 @@
       "permissions": [
         "SCHEDULE_EXACT_ALARM",
         "POST_NOTIFICATIONS",
-        "android.permission.health.READ_STEPS",
-        "android.permission.health.READ_DISTANCE"
+        "android.permission.health.READ_STEPS"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

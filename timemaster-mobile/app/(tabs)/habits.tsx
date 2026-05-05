@@ -16,6 +16,7 @@ export default function HabitsScreen() {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [healthDistanceKm, setHealthDistanceKm] = useState(0);
 
     const iconMap: any = {
         Flame: <Flame size={24} />,
@@ -61,14 +62,10 @@ export default function HabitsScreen() {
                         progressValue: metrics.steps,
                         completed: metrics.steps >= (habit.dailyGoal || 0)
                     });
-                } else if (habit.verificationSource === 'GOOGLE_FIT_DISTANCE') {
-                    await habitService.checkIn(user.userId, habit.id, {
-                        logDate: today,
-                        progressValue: Math.round(metrics.distance * 100) / 100,
-                        completed: metrics.distance >= (habit.dailyGoal || 0)
-                    });
                 }
             }
+            // Store distance for display
+            setHealthDistanceKm(metrics.distanceKm);
             // Reload after sync
             const updatedData = await habitService.getHabits(user.userId);
             setHabits(updatedData);
@@ -163,7 +160,11 @@ export default function HabitsScreen() {
                                     {habit.isSystemHabit && <Lock size={12} color="#9ca3af" style={{ marginLeft: 4 }} />}
                                 </View>
                                 <Text style={styles.habitSub}>
-                                    {habit.currentStreak} day streak • KPI: {habit.dailyGoal} {habit.unit}
+                                    {habit.currentStreak} day streak • {
+                                        habit.verificationSource === 'GOOGLE_FIT_STEPS'
+                                            ? `📏 ${healthDistanceKm} km`
+                                            : `KPI: ${habit.dailyGoal} ${habit.unit}`
+                                    }
                                 </Text>
                                 <View style={styles.progressContainer}>
                                     <View style={styles.progressBar}>

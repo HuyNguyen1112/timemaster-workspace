@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.vinhhuy.timemasterai.service.AiMentorService;
+import com.vinhhuy.timemasterai.service.HabitIngestionService;
 import com.vinhhuy.timemasterai.service.TaskIngestionService;
 import com.vinhhuy.timemasterai.dto.ChatRequest;
+import com.vinhhuy.timemasterai.dto.HabitResponse;
 import com.vinhhuy.timemasterai.dto.MentorResponse;
 import com.vinhhuy.timemasterai.security.UserContext;
 
@@ -27,6 +29,7 @@ public class AiController {
 
     private final AiMentorService aiMentorService; // Orchestrator
     private final TaskIngestionService taskIngestionService;
+    private final HabitIngestionService habitIngestionService;
     private final UserContext userContext;
     private final McpClient mcpClient;
 
@@ -88,6 +91,42 @@ public class AiController {
         log.info("Triggering real-time removal for Task ID: {} (UserID: {})", taskId, userId);
         taskIngestionService.removeTaskFromVectorStore(taskId);
         return ResponseEntity.ok("Removal complete for Task: " + taskId);
+    }
+
+    /**
+     * Real-time sync endpoint for a single habit (Ingest or Update).
+     */
+    @PostMapping("/ingest-habit")
+    public ResponseEntity<String> ingestHabit(
+            @RequestBody HabitResponse habit,
+            @RequestParam(required = false) Long userId) {
+
+        Long effectiveUserId = userId;
+        if (effectiveUserId == null) {
+            effectiveUserId = userContext.getUserId();
+        }
+        if (effectiveUserId == null) {
+            effectiveUserId = habit.getUserId();
+        }
+
+        log.info("Triggering real-time sync for Habit ID: {} (UserID: {})", habit.getId(), effectiveUserId);
+
+        if (effectiveUserId == null) {
+            return ResponseEntity.status(401).body("Missing User ID for habit ingestion");
+        }
+
+        habitIngestionService.ingestSingleHabit(habit, effectiveUserId);
+        return ResponseEntity.ok("Sync complete for Habit: " + habit.getId());
+    }
+
+    /**
+     * Real-time removal endpoint for a single habit.
+     */
+    @DeleteMapping("/ingest-habit")
+    public ResponseEntity<String> deleteHabit(@RequestParam Long habitId, @RequestParam(required = false) Long userId) {
+        log.info("Triggering real-time removal for Habit ID: {} (UserID: {})", habitId, userId);
+        habitIngestionService.removeHabitFromVectorStore(habitId);
+        return ResponseEntity.ok("Removal complete for Habit: " + habitId);
     }
 
     @GetMapping("/testTools")

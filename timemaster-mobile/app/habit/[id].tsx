@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Zap, Target, Award, Calendar, Trash2, Edit3, CheckCircle2 } from 'lucide-react-native';
 import { habitService, Habit } from '../../services/habit.service';
+import { healthService } from '../../services/health.service';
 import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -19,6 +20,7 @@ export default function HabitDetailScreen() {
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [showProgressModal, setShowProgressModal] = useState(false);
     const [progressInput, setProgressInput] = useState('');
+    const [distanceKm, setDistanceKm] = useState(0);
 
     const iconMap: any = {
         Flame: <Flame size={32} />,
@@ -36,6 +38,15 @@ export default function HabitDetailScreen() {
         try {
             const data = await habitService.getHabitById(user.userId, Number(id));
             setHabit(data);
+            // Fetch real distance from Health Connect for step habits
+            if (data.verificationSource === 'GOOGLE_FIT_STEPS' && healthService.isAvailable()) {
+                try {
+                    await healthService.initialize();
+                    const today = new Date().toISOString().split('T')[0];
+                    const metrics = await healthService.getDailyMetrics(today);
+                    setDistanceKm(metrics.distanceKm);
+                } catch (e) { /* silent */ }
+            }
         } catch (error) {
             console.error('Failed to load habit details:', error);
             Alert.alert('Error', 'Failed to load habit details.');
@@ -217,9 +228,14 @@ export default function HabitDetailScreen() {
                     </View>
                     <View style={styles.statBox}>
                         <Award size={20} color={themeColor} />
-                        <Text style={styles.statTitle}>Goal Status</Text>
+                        <Text style={styles.statTitle}>
+                            {habit.verificationSource === 'GOOGLE_FIT_STEPS' ? 'Distance' : 'Goal Status'}
+                        </Text>
                         <Text style={styles.statValue}>
-                            {Math.round(((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%
+                            {habit.verificationSource === 'GOOGLE_FIT_STEPS'
+                                ? `${distanceKm} km`
+                                : `${Math.round(((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%`
+                            }
                         </Text>
                     </View>
                 </View>

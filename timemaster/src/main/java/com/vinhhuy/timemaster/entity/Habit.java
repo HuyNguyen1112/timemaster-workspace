@@ -62,6 +62,6 @@ public class Habit {
     }
 
     public enum VerificationSource {
-        NONE, GOOGLE_FIT_STEPS, GOOGLE_FIT_DISTANCE
+        NONE, GOOGLE_FIT_STEPS
     }
 }

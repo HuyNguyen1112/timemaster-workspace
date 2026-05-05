@@ -13,7 +13,6 @@ try {
 export const healthService = {
   isAvailable: () => {
     try {
-      // The package uses a Proxy that throws on any access if unlinked
       return !!HealthConnect && typeof HealthConnect.initialize === 'function';
     } catch (e) {
       return false;
@@ -45,7 +44,7 @@ export const healthService = {
   },
 
   getDailyMetrics: async (date: string) => {
-    if (!HealthConnect) return { steps: 0, distance: 0 };
+    if (!HealthConnect) return { steps: 0, distanceKm: 0 };
     
     try {
       const startTime = new Date(date);
@@ -54,35 +53,34 @@ export const healthService = {
       const endTime = new Date(date);
       endTime.setHours(23, 59, 59, 999);
 
-      // Fetch Steps
-      const stepRecords = await HealthConnect.readRecords('Steps', {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-      });
+      const timeRangeFilter = {
+        operator: 'between',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      };
 
+      // Fetch Steps
+      const stepRecords = await HealthConnect.readRecords('Steps', { timeRangeFilter });
       const totalSteps = stepRecords.records.reduce((acc: number, cur: any) => acc + cur.count, 0);
 
-      // Fetch Distance
-      const distanceRecords = await HealthConnect.readRecords('Distance', {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-      });
-
-      const totalDistance = distanceRecords.records.reduce((acc: number, cur: any) => acc + cur.distance.inMeters, 0);
+      // Fetch Distance directly from Google Fit via Health Connect
+      let distanceKm = 0;
+      try {
+        const distanceRecords = await HealthConnect.readRecords('Distance', { timeRangeFilter });
+        const totalMeters = distanceRecords.records.reduce((acc: number, cur: any) => acc + cur.distance.inMeters, 0);
+        distanceKm = Math.round((totalMeters / 1000) * 100) / 100;
+      } catch (e) {
+        // Fallback: estimate from steps if distance read fails
+        distanceKm = Math.round(totalSteps * 0.0007 * 100) / 100;
+      }
 
       return {
         steps: totalSteps,
-        distance: totalDistance / 1000, // convert meters to km
+        distanceKm,
       };
     } catch (e) {
       console.error('Failed to fetch health data:', e);
-      return { steps: 0, distance: 0 };
+      return { steps: 0, distanceKm: 0 };
     }
   }
 };

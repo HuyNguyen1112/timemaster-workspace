@@ -4,7 +4,6 @@ import com.vinhhuy.timemaster.dto.HabitCheckInRequest;
 import com.vinhhuy.timemaster.dto.HabitDailyProgress;
 import com.vinhhuy.timemaster.dto.HabitRequest;
 import com.vinhhuy.timemaster.dto.HabitResponse;
-import com.vinhhuy.timemaster.dto.HabitLogResponse;
 import com.vinhhuy.timemaster.entity.Habit;
 import com.vinhhuy.timemaster.entity.HabitLog;
 import com.vinhhuy.timemaster.entity.User;
@@ -13,7 +12,10 @@ import com.vinhhuy.timemaster.repository.HabitLogRepository;
 import com.vinhhuy.timemaster.repository.HabitRepository;
 import com.vinhhuy.timemaster.repository.UserRepository;
 import com.vinhhuy.timemaster.service.HabitService;
+import com.vinhhuy.timemaster.service.VectorSyncService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,12 +25,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HabitServiceImpl implements HabitService {
 
     private final HabitRepository habitRepository;
     private final HabitLogRepository habitLogRepository;
     private final UserRepository userRepository;
     private final HabitMapper habitMapper;
+    private final VectorSyncService vectorSyncService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     @Transactional
@@ -56,14 +61,19 @@ public class HabitServiceImpl implements HabitService {
         }
 
         Habit saved = habitRepository.save(habit);
-        return populateStats(saved, false);
+        HabitResponse response = populateStats(saved, false);
+
+        // Sync to AI
+        vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
+
+        return response;
     }
 
     @Override
     @Transactional
     public List<HabitResponse> getHabitsByUser(Long userId) {
         List<Habit> habits = habitRepository.findByUserId(userId);
-        
+
         // If no system habits found, initialize them
         boolean hasSystemHabits = habits.stream().anyMatch(h -> Boolean.TRUE.equals(h.isSystemHabit()));
         if (!hasSystemHabits) {
@@ -79,32 +89,19 @@ public class HabitServiceImpl implements HabitService {
     private void initializeSystemHabits(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        // Default Walking Habit
-        Habit walking = new Habit();
-        walking.setUser(user);
-        walking.setName("Daily Walking");
-        walking.setDescription("Keep moving every day to stay healthy.");
-        walking.setIcon("Flame");
-        walking.setDailyGoal(8000);
-        walking.setUnit("steps");
-        walking.setColorCode("#fb923c"); // Orange
-        walking.setVerificationSource(Habit.VerificationSource.GOOGLE_FIT_STEPS);
-        walking.setSystemHabit(true);
-        habitRepository.save(walking);
 
-        // Default Running Habit
-        Habit running = new Habit();
-        running.setUser(user);
-        running.setName("Daily Running");
-        running.setDescription("Build cardiovascular endurance.");
-        running.setIcon("Flame");
-        running.setDailyGoal(2);
-        running.setUnit("km");
-        running.setColorCode("#ef4444"); // Red
-        running.setVerificationSource(Habit.VerificationSource.GOOGLE_FIT_DISTANCE);
-        running.setSystemHabit(true);
-        habitRepository.save(running);
+        // Default Activity Habit (Steps + calculated distance)
+        Habit activity = new Habit();
+        activity.setUser(user);
+        activity.setName("Daily Activity");
+        activity.setDescription("Track your daily steps and stay active.");
+        activity.setIcon("Flame");
+        activity.setDailyGoal(8000);
+        activity.setUnit("steps");
+        activity.setColorCode("#fb923c"); // Orange
+        activity.setVerificationSource(Habit.VerificationSource.GOOGLE_FIT_STEPS);
+        activity.setSystemHabit(true);
+        habitRepository.save(activity);
     }
 
     @Override
@@ -162,7 +159,12 @@ public class HabitServiceImpl implements HabitService {
             habit.setColorCode(request.getColorCode());
 
         Habit updated = habitRepository.save(habit);
-        return populateStats(updated, false);
+        HabitResponse response = populateStats(updated, false);
+
+        // Sync to AI
+        vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
+
+        return response;
     }
 
     @Override
@@ -179,6 +181,9 @@ public class HabitServiceImpl implements HabitService {
 
         List<HabitLog> logs = habitLogRepository.findByHabitId(habitId);
         habitLogRepository.deleteAll(logs);
+
+        // Notify AI before deletion
+        vectorSyncService.deleteHabitFromAi(habitId, getAuthHeaderSafely());
 
         habitRepository.delete(habit);
     }
@@ -201,7 +206,7 @@ public class HabitServiceImpl implements HabitService {
         log.setLogDate(logDate);
 
         int newProgressValue = request.getProgressValue() != null ? request.getProgressValue() : habit.getDailyGoal();
-        
+
         if (Boolean.TRUE.equals(request.getIsIncrement())) {
             int currentProgress = log.getProgressValue() != null ? log.getProgressValue() : 0;
             log.setProgressValue(currentProgress + newProgressValue);
@@ -217,7 +222,12 @@ public class HabitServiceImpl implements HabitService {
 
         habitLogRepository.save(log);
 
-        return populateStats(habit, false);
+        HabitResponse response = populateStats(habit, false);
+
+        // Sync progress update to AI
+        vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
+
+        return response;
     }
 
     private HabitResponse populateStats(Habit habit, boolean includeLogs) {
@@ -273,5 +283,13 @@ public class HabitServiceImpl implements HabitService {
         }
 
         return response;
+    }
+
+    private String getAuthHeaderSafely() {
+        try {
+            return httpServletRequest.getHeader("Authorization");
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

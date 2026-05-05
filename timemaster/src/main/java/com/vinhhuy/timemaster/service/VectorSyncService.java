@@ -10,12 +10,16 @@ public interface VectorSyncService {
      * @param authToken The bearer token for authentication sharing.
      */
     void syncToAi(TaskResponse task, String authToken);
+    void deleteFromAi(Long taskId, String authToken);
 
     /**
-     * Notifies the AI module to remove a task from the Vector Store.
-     * @param taskId The ID of the task to remove.
-     * @param authToken The bearer token for authentication sharing.
+     * Synchronizes a single habit to the AI Vector Store.
      */
-    void deleteFromAi(Long taskId, String authToken);
+    void syncHabitToAi(com.vinhhuy.timemaster.dto.HabitResponse habit, String authToken);
+
+    /**
+     * Notifies the AI module to remove a habit from the Vector Store.
+     */
+    void deleteHabitFromAi(Long habitId, String authToken);
 }
 
