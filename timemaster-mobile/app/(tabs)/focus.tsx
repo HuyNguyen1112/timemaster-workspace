@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, TextInput, Keyboard, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrainCircuit, Play, Pause, ChevronRight, Square, Settings2, Plus, Minus, Check, Target, Zap } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { taskService } from '../../services/task.service';
@@ -8,6 +9,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 export default function FocusScreen() {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const { habitId, habitTitle } = useLocalSearchParams();
     const [isPlaying, setIsPlaying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -236,7 +238,7 @@ export default function FocusScreen() {
             </View>
 
             {/* Lower Controls */}
-            <View style={styles.controls}>
+            <View style={[styles.controls, { bottom: insets.bottom + 110 }]}>
                 <TouchableOpacity style={styles.controlButton} onPress={resetTimer}>
                     <Square size={20} color="#9ca3af" fill="#9ca3af" />
                 </TouchableOpacity>

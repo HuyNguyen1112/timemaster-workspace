@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, LayoutGrid, ChevronRight, Briefcase, Heart, User, BookOpen, Star, Coffee, Gamepad2, Calendar } from 'lucide-react-native';
+import { useCustomAlert } from '../../components/CustomAlertContext';
 import AddTaskModal from '../../components/AddTaskModal';
 import MatrixDetailModal from '../../components/MatrixDetailModal';
 import CategoryDetailModal from '../../components/CategoryDetailModal';
@@ -16,6 +18,8 @@ import * as Notifications from 'expo-notifications';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { showAlert } = useCustomAlert();
   const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -203,20 +207,17 @@ export default function DashboardScreen() {
     } catch (error: any) {
         if (error.response?.status === 409) {
             const conflictInfo = error.response.data;
-            Alert.alert(
-                'Schedule Conflict',
-                `${conflictInfo.message}\n\nConflicts:\n- ${conflictInfo.conflicts.join('\n- ')}\n\nDo you want to save anyway?`,
-                Platform.OS === 'ios' ? [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Save Anyway', onPress: () => handleAddTask(taskData, true) }
-                ] : [
-                    { text: 'Save Anyway', onPress: () => handleAddTask(taskData, true) },
-                    { text: 'Cancel', style: 'cancel' }
-                ]
-            );
+            showAlert({
+                title: 'Schedule Conflict',
+                message: `${conflictInfo.message}\n\nConflicts:\n- ${conflictInfo.conflicts.join('\n- ')}\n\nDo you want to save anyway?`,
+                type: 'warning',
+                confirmText: 'Save Anyway',
+                cancelText: 'Cancel',
+                onConfirm: () => handleAddTask(taskData, true)
+            });
         } else {
             console.error('Operation failed', error);
-            Alert.alert('Error', 'Operation failed. Please check inputs.');
+            showAlert({ title: 'Error', message: 'Operation failed. Please check inputs.', type: 'error' });
         }
     }
   };
@@ -246,14 +247,23 @@ export default function DashboardScreen() {
   };
 
   const handleDeleteCategory = async (id: number) => {
-    try {
-      await categoryService.deleteCategory(id);
-      fetchCategories();
-      fetchTasks(); // Refresh tasks as their categoryIds might have changed to null
-    } catch (error) {
-      console.error('Delete category failed:', error);
-      Alert.alert('Error', 'Failed to delete category.');
-    }
+    showAlert({
+      title: 'Xóa danh mục',
+      message: 'Bạn có chắc chắn muốn xóa danh mục này không? Các công việc liên quan sẽ không bị xóa nhưng sẽ mất danh mục.',
+      type: 'warning',
+      confirmText: 'Xóa ngay',
+      cancelText: 'Hủy',
+      onConfirm: async () => {
+        try {
+          await categoryService.deleteCategory(id);
+          fetchCategories();
+          fetchTasks(); 
+        } catch (error) {
+          console.error('Delete category failed:', error);
+          showAlert({ title: 'Lỗi', message: 'Không thể xóa danh mục.', type: 'error' });
+        }
+      }
+    });
   };
 
   const getTodayTasksForCategory = (catId: number) => {
@@ -262,22 +272,32 @@ export default function DashboardScreen() {
   };
 
   const handleDeleteTask = async (id: number) => {
-    try {
-      if (!user) return;
-      await taskService.deleteTask(user.userId, id);
-      await notificationService.cancelTaskNotification(id);
-      setShowDetailModal(false);
-      fetchTasks();
-    } catch (error) {
-      console.error('Delete failed:', error);
-    }
+    showAlert({
+      title: 'Xóa công việc',
+      message: 'Bạn có chắc chắn muốn xóa công việc này không? Hành động này không thể hoàn tác.',
+      type: 'warning',
+      confirmText: 'Xóa ngay',
+      cancelText: 'Hủy',
+      onConfirm: async () => {
+        try {
+          if (!user) return;
+          await taskService.deleteTask(user.userId, id);
+          await notificationService.cancelTaskNotification(id);
+          setShowDetailModal(false);
+          fetchTasks();
+        } catch (error) {
+          console.error('Delete failed:', error);
+          showAlert({ title: 'Lỗi', message: 'Không thể xóa công việc.', type: 'error' });
+        }
+      }
+    });
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8b5cf6" />

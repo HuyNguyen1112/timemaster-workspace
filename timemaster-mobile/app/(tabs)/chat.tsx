@@ -1,15 +1,28 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrainCircuit, Mic, Send, Zap, Calendar, CheckCircle2 } from 'lucide-react-native';
 import { aiService } from '../../services/ai.service';
 
 export default function AiChatScreen() {
+    const insets = useSafeAreaInsets();
     const [input, setInput] = useState('');
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const [loading, setLoading] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
     const [messages, setMessages] = useState<any[]>([
         { id: 1, text: "Hello! I'm your AI Mentor. How can I help you today?", isUser: false }
     ]);
+
+    useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+        return () => {
+            keyboardDidHideListener.remove();
+            keyboardDidShowListener.remove();
+        };
+    }, []);
 
     const handleSend = async () => {
         if (!input.trim() || loading) return;
@@ -27,7 +40,7 @@ export default function AiChatScreen() {
                 id: Date.now() + 1,
                 text: response.message,
                 isUser: false,
-                action: response.actionTaken !== 'none' ? response.actionTaken : null
+                action: (response.actionTaken && response.actionTaken !== 'none') ? response.actionTaken : null
             };
             
             setMessages(prev => [...prev, aiMessage]);
@@ -47,33 +60,55 @@ export default function AiChatScreen() {
         let icon = < Zap size={14} color="#c084fc" />;
         let title = "System Action";
         let color = "#8b5cf6";
+        let description = "The changes have been synced.";
 
-        if (action.includes('Create')) {
+        if (action === 'task_write') {
             icon = <Calendar size={14} color="#60a5fa" />;
-            title = "Task Created";
-            color = "#3b82f6";
-        } else if (action.includes('Update') || action.includes('Complete')) {
-            icon = <CheckCircle2 size={14} color="#22c55e" />;
             title = "Schedule Updated";
+            color = "#3b82f6";
+            description = "Your schedule has been updated successfully.";
+        } else if (action === 'habit_write') {
+            icon = <CheckCircle2 size={14} color="#22c55e" />;
+            title = "Habit Recorded";
             color = "#22c55e";
+            description = "Your progress has been logged to your habits.";
+        } else if (action === 'data_query') {
+            // For data queries, show a very subtle indicator or nothing
+            return (
+                <View style={styles.queryIndicator}>
+                    <Zap size={10} color="#6b7280" />
+                    <Text style={styles.queryIndicatorText}>Dữ liệu thực tế từ hệ thống</Text>
+                </View>
+            );
+        } else if (action === 'ERROR') {
+            icon = <Zap size={14} color="#ef4444" />;
+            title = "Action Failed";
+            color = "#ef4444";
+            description = "Something went wrong while executing the task.";
         }
 
         return (
-            <View style={[styles.interactiveWidget, { borderColor: color + '40' }]}>
+            <View style={[styles.interactiveWidget, { borderColor: color + '30' }]}>
                 <View style={styles.widgetHeader}>
                     <View style={styles.widgetTag}>
-                        {icon}
+                        <View style={[styles.tagIconWrapper, { backgroundColor: color + '20' }]}>
+                            {icon}
+                        </View>
                         <Text style={[styles.widgetTagText, { color }]}>{title}</Text>
                     </View>
                     <Text style={styles.widgetTime}>Just now</Text>
                 </View>
-                <Text style={styles.widgetInfo}>The changes have been synced to your dashboard.</Text>
+                <Text style={styles.widgetInfo}>{description}</Text>
             </View>
         );
     };
 
     return (
-        <View style={styles.container}>
+        <KeyboardAvoidingView 
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+        >
             <View style={styles.header}>
                 <View style={[styles.avatar, loading && { backgroundColor: '#a855f7' }]}>
                     <BrainCircuit color="#ffffff" size={20} />
@@ -87,7 +122,8 @@ export default function AiChatScreen() {
 
             <ScrollView 
                 ref={scrollViewRef}
-                contentContainerStyle={styles.chatScroll} 
+                style={{ flex: 1 }}
+                contentContainerStyle={[styles.chatScroll, { paddingBottom: 20 }]} 
                 showsVerticalScrollIndicator={false}
                 onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             >
@@ -126,7 +162,7 @@ export default function AiChatScreen() {
                 )}
             </ScrollView>
 
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { paddingBottom: isKeyboardVisible ? 10 : insets.bottom + 55 }]}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
                     <TouchableOpacity style={styles.chip} onPress={() => setInput('What are my tasks today?')}><Text style={styles.chipText}>View Schedule</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.chip} onPress={() => setInput('Create a deep work session for 2 hours')}><Text style={styles.chipText}>Plan Focus</Text></TouchableOpacity>
@@ -153,7 +189,7 @@ export default function AiChatScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -202,7 +238,6 @@ const styles = StyleSheet.create({
     },
     chatScroll: {
         padding: 24,
-        paddingBottom: 200,
     },
     userBubbleWrapper: {
         alignItems: 'flex-end',
@@ -285,11 +320,26 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         fontSize: 12,
     },
+    tagIconWrapper: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    queryIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 4,
+        opacity: 0.6,
+    },
+    queryIndicatorText: {
+        color: '#6b7280',
+        fontSize: 10,
+        fontStyle: 'italic',
+    },
     inputContainer: {
-        position: 'absolute',
-        bottom: 80,
-        left: 0,
-        right: 0,
         padding: 24,
         backgroundColor: '#0a0a0a',
         borderTopWidth: 1,

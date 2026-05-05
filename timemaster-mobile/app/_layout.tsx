@@ -16,6 +16,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { authService } from '../services/auth.service';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { notificationService } from '../services/notification.service';
+import { AlertProvider } from '../components/CustomAlertContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -64,10 +65,16 @@ function RootLayoutNav() {
   );
 }
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AlertProvider>
+          <RootLayoutNav />
+        </AlertProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

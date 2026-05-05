@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions, Platform, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Zap, Target, Award, Calendar, Trash2, Edit3, CheckCircle2 } from 'lucide-react-native';
 import { habitService, Habit } from '../../services/habit.service';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,7 @@ export default function HabitDetailScreen() {
     const { id } = useLocalSearchParams();
     const { user } = useAuth();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [habit, setHabit] = useState<Habit | null>(null);
     const [loading, setLoading] = useState(true);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -155,7 +157,7 @@ export default function HabitDetailScreen() {
             />
             
             {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <ChevronLeft color="#ffffff" size={28} />
                     </TouchableOpacity>
@@ -239,7 +241,7 @@ export default function HabitDetailScreen() {
             </ScrollView>
 
             {/* Bottom Action */}
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                 {habit.verificationSource !== 'NONE' ? (
                     <View style={[styles.checkInBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
                         <Calendar color="#22c55e" size={20} />
@@ -364,7 +366,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
         zIndex: 10,
     },
     backBtn: {
@@ -540,7 +541,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
         paddingTop: 20,
         backgroundColor: '#130f1e',
         borderTopWidth: 1,

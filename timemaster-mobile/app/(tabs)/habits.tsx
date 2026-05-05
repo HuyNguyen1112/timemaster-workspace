@@ -1,16 +1,18 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Droplets, Book, Flame, Plus, ChevronRight, Zap, Target, Dumbbell, Code, Brain, Music } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Droplets, Book, Flame, Plus, ChevronRight, Zap, Target, Dumbbell, Code, Brain, Music, Lock } from 'lucide-react-native';
 import AddHabitModal from '../../components/AddHabitModal';
 import { useAuth } from '../../context/AuthContext';
 import { habitService, Habit } from '../../services/habit.service';
 import { healthService } from '../../services/health.service';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Lock } from 'lucide-react-native';
+
 
 export default function HabitsScreen() {
     const { user } = useAuth();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [habits, setHabits] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -107,12 +109,15 @@ export default function HabitsScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Text style={styles.title}>Your Habits</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]} 
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Streak Stats */}
                 <View style={styles.statsRow}>
                     <View style={styles.statBox}>
@@ -199,8 +204,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 24,
-        paddingTop: 48,
+        paddingHorizontal: 24,
+        paddingBottom: 16,
     },
     title: {
         fontSize: 28,
@@ -208,9 +213,8 @@ const styles = StyleSheet.create({
         color: '#ffffff',
     },
     scrollContent: {
-        padding: 24,
+        paddingHorizontal: 24,
         paddingTop: 0,
-        paddingBottom: 120,
     },
     statsRow: {
         flexDirection: 'row',

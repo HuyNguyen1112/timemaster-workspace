@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, CalendarDays, Timer, MessageSquare, BarChart3, BrainCircuit, Flame, User } from 'lucide-react-native';
 
 function CustomBottomNav({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
   const navItems = [
     { name: 'index', icon: LayoutDashboard, isCentral: false },
     { name: 'habits', icon: Flame, isCentral: false },
@@ -12,7 +14,7 @@ function CustomBottomNav({ state, descriptors, navigation }: any) {
   ];
 
   return (
-    <View style={styles.navContainer}>
+    <View style={[styles.navContainer, { height: 75 + insets.bottom, paddingBottom: insets.bottom }]}>
       {state.routes.map((route: any, index: number) => {
         const item = navItems.find((n) => n.name === route.name);
         if (!item) return null;
@@ -75,7 +77,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
     backgroundColor: 'rgba(10, 10, 10, 0.9)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.05)',

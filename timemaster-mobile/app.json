@@ -14,7 +14,9 @@
     "android": {
       "permissions": [
         "SCHEDULE_EXACT_ALARM",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_DISTANCE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -54,6 +56,7 @@
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "react-native-health-connect",
+      "./withHealthConnectConfig.js",
       [
         "expo-build-properties",
         {
@@ -68,6 +71,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3c591eee-a7bd-49e0-a973-757a23590eeb"
+      }
     }
   }
 }

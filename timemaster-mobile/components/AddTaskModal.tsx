@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { X, Calendar, Clock, Flag, Layout, Ban, AlignLeft, Briefcase, Heart, BookOpen, User, Star, Coffee, Gamepad2 } from 'lucide-react-native';
+import { useCustomAlert } from './CustomAlertContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function AddTaskModal({ visible, onClose, onAdd, task, categories }: any) {
+    const { showAlert } = useCustomAlert();
     // ... (state and logic remain the same)
     const [title, setTitle] = useState('');
     const [matrix, setMatrix] = useState('Q1');
@@ -50,7 +52,11 @@ export default function AddTaskModal({ visible, onClose, onAdd, task, categories
         const selectedDateTime = new Date(date);
         selectedDateTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
         if (selectedDateTime < now) {
-            Alert.alert('Invalid Time', 'Cannot save tasks in the past.');
+            showAlert({
+                title: 'Thời gian không hợp lệ',
+                message: 'Bạn không thể lưu công việc vào thời điểm trong quá khứ.',
+                type: 'warning'
+            });
             return;
         }
         onAdd({ 

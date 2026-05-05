@@ -7,8 +7,8 @@ import { BrainCircuit, Lock, Mail, ArrowRight } from 'lucide-react-native';
 export default function LoginScreen() {
     const router = useRouter();
     const { signIn } = useAuth();
-    const [email, setEmail] = useState('vinhhuy@gmail.com'); 
-    const [password, setPassword] = useState('123456');
+    const [email, setEmail] = useState(''); 
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {

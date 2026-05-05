@@ -1,49 +1,29 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Settings, Bell, Shield, LogOut, ChevronRight, BarChart3, Award } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { notificationService } from '../../services/notification.service';
+import { useCustomAlert } from '../../components/CustomAlertContext';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
+    const insets = useSafeAreaInsets();
+    const { showAlert } = useCustomAlert();
 
     const handleLogout = async () => {
-        Alert.alert(
-            "Đăng xuất",
-            "Bạn có chắc chắn muốn thoát không?",
-            Platform.OS === 'ios' ? [
-                { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Đăng xuất", 
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await signOut();
-                            // Không cần redirect thủ công, RootLayout sẽ tự đẩy ra Login
-                        } catch (error) {
-                            console.error('Logout failed:', error);
-                            Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-                        }
-                    }
-                }
-            ] : [
-                { 
-                    text: "Đăng xuất", 
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await signOut();
-                            // Không cần redirect thủ công, RootLayout sẽ tự đẩy ra Login
-                        } catch (error) {
-                            console.error('Logout failed:', error);
-                            Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-                        }
-                    } 
-                },
-                { text: "Hủy", style: "cancel" }
-            ]
-        );
+        showAlert({
+            title: 'Đăng xuất',
+            message: 'Bạn có chắc chắn muốn thoát không? Các thói quen và mục tiêu của bạn đang chờ bạn đó!',
+            type: 'notification',
+            confirmText: 'Đăng xuất ngay',
+            cancelText: 'Ở lại',
+            onConfirm: async () => {
+                await signOut();
+            }
+        });
     };
+
 
     return (
         <View style={styles.container}>
@@ -54,7 +34,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
                 {/* Profile Card */}
                 <View style={styles.profileCard}>
                     <View style={styles.avatarWrapper}>

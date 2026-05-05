@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { X, CheckCircle2, Circle, Target, Flame, Trash2, Briefcase, Heart, BookOpen, User, Star, Coffee, Gamepad2, Wrench } from 'lucide-react-native';
+import { useCustomAlert } from './CustomAlertContext';
 
 export default function CategoryDetailModal({ visible, onClose, category, items, onDelete, onToggle, onDetail, onEdit }: any) {
+    const { showAlert } = useCustomAlert();
     if (!category) return null;
 
     const iconMap: any = {
@@ -21,31 +23,17 @@ export default function CategoryDetailModal({ visible, onClose, category, items,
     };
 
     const handleDelete = () => {
-        Alert.alert(
-            "Delete Category",
-            "Are you sure you want to delete this category? Linked tasks will not be deleted but will have no category.",
-            Platform.OS === 'ios' ? [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Delete", 
-                    style: "destructive", 
-                    onPress: () => {
-                        onDelete(category.id);
-                        onClose();
-                    } 
-                }
-            ] : [
-                { 
-                    text: "Delete", 
-                    style: "destructive", 
-                    onPress: () => {
-                        onDelete(category.id);
-                        onClose();
-                    } 
-                },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        showAlert({
+            title: 'Xóa danh mục',
+            message: 'Bạn có chắc chắn muốn xóa danh mục này không? Các công việc liên quan sẽ không bị xóa nhưng sẽ mất danh mục.',
+            type: 'warning',
+            confirmText: 'Xóa ngay',
+            cancelText: 'Hủy',
+            onConfirm: () => {
+                onDelete(category.id);
+                onClose();
+            }
+        });
     };
 
     return (
