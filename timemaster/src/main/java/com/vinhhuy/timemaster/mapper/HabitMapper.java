@@ -18,6 +18,8 @@ public class HabitMapper {
                 .unit(habit.getUnit())
                 .frequency(habit.getFrequency().name())
                 .colorCode(habit.getColorCode())
+                .routine(habit.getRoutine() != null ? habit.getRoutine().name() : "ALL_DAY")
+                .selectedDays(habit.getSelectedDays())
                 .createdAt(habit.getCreatedAt())
                 .currentStreak(0)
                 .completedToday(false)

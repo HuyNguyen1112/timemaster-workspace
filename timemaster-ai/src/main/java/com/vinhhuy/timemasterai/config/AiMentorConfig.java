@@ -111,10 +111,10 @@ public class AiMentorConfig {
     }
 
     @Bean(destroyMethod = "close")
-    public McpClient mcpClient() {
+    public McpClient mcpClient(@Value("${mcp.server.url:http://localhost:8080/sse}") String mcpServerUrl) {
         return new DefaultMcpClient.Builder()
                 .transport(new HttpMcpTransport.Builder()
-                        .sseUrl("http://localhost:8080/sse")
+                        .sseUrl(mcpServerUrl)
                         .timeout(Duration.ofSeconds(120))
                         .logRequests(true)
                         .logResponses(true)

@@ -2,11 +2,14 @@ package com.vinhhuy.timemaster.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.util.List;
 
 @Entity
-@Table(name = "categories")
-@Data @NoArgsConstructor @AllArgsConstructor
-public class Category {
+@Table(name = "contexts")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Context {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,7 +21,11 @@ public class Category {
     @Column(nullable = false)
     private String name;
 
-    private String iconName; // VD: "Briefcase", "Heart"
+    private String colorCode;
 
-    private String colorCode; // VD: "#FF5733"
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @OneToMany(mappedBy = "context", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ContextSchedule> schedules;
 }

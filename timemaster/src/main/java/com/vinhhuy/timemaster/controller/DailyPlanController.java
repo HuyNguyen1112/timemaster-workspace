@@ -3,6 +3,7 @@ package com.vinhhuy.timemaster.controller;
 import com.vinhhuy.timemaster.dto.DailyPlanResponse;
 import com.vinhhuy.timemaster.dto.HabitDailyProgress;
 import com.vinhhuy.timemaster.dto.TaskResponse;
+import com.vinhhuy.timemaster.security.SecurityUtils;
 import com.vinhhuy.timemaster.service.HabitService;
 import com.vinhhuy.timemaster.service.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +23,9 @@ public class DailyPlanController {
 
     @GetMapping
     public ResponseEntity<DailyPlanResponse> getDailyPlan(
-            @RequestHeader("userId") Long userId,
             @RequestParam String date) {
 
+        Long userId = SecurityUtils.getCurrentUserId();
         LocalDate targetDate = LocalDate.parse(date);
 
         List<TaskResponse> tasks = taskService.getTasksByDate(userId, targetDate);

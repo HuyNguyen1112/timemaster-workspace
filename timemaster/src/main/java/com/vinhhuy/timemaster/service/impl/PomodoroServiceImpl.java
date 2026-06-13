@@ -90,6 +90,19 @@ public class PomodoroServiceImpl implements PomodoroService {
             habitService.checkIn(request.habitId(), userId, checkInReq);
         }
 
+        // AUTO-SYNC HOOK: Tự động trừ thời gian cho Task nếu Pomodoro hoàn thành
+        if (request.taskId() != null && savedSession.getStatus() == PomodoroSession.SessionStatus.COMPLETED) {
+            Task task = savedSession.getTask();
+            if (task.getRemainingDuration() != null) {
+                int newDuration = task.getRemainingDuration() - savedSession.getDurationMinutes();
+                task.setRemainingDuration(Math.max(0, newDuration));
+                if (newDuration <= 0) {
+                    task.setStatus(Task.TaskStatus.COMPLETED);
+                }
+                taskRepository.save(task);
+            }
+        }
+
         return pomodoroMapper.toResponse(savedSession);
     }
 
@@ -162,12 +175,12 @@ public class PomodoroServiceImpl implements PomodoroService {
             comparisonWithLastWeek = "+100% Focus Time";
         }
 
-        // 3. Deep Analytics (By Category)
-        Map<String, Long> focusTimeByCategory = sessions.stream()
+        // 3. Deep Analytics (By Context)
+        Map<String, Long> focusTimeByContext = sessions.stream()
                 .filter(s -> s.getStatus() == PomodoroSession.SessionStatus.COMPLETED)
-                .filter(s -> s.getTask() != null && s.getTask().getCategory() != null)
+                .filter(s -> s.getTask() != null && s.getTask().getContext() != null)
                 .collect(Collectors.groupingBy(
-                        s -> s.getTask().getCategory().getName(),
+                        s -> s.getTask().getContext().getName(),
                         Collectors.summingLong(PomodoroSession::getDurationMinutes)));
 
         // 4. Habits
@@ -217,7 +230,7 @@ public class PomodoroServiceImpl implements PomodoroService {
                 .abandonedSessions(abandonedSessions)
                 .focusTimeLast7Days(focusTimeLast7Days)
                 .comparisonWithLastWeek(comparisonWithLastWeek)
-                .focusTimeByCategory(focusTimeByCategory)
+                .focusTimeByContext(focusTimeByContext)
                 .currentStreak(currentStreak)
                 .mostProductiveTimeOfDay(mostProductiveTimeOfDay)
                 .build();

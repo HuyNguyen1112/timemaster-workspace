@@ -130,6 +130,78 @@ class NotificationService {
     }
   }
 
+  async scheduleHabitNotifications(habit: any) {
+    try {
+      await this.cancelHabitNotifications(habit.id);
+
+      if (!habit.routine) return;
+
+      const hoursToSchedule: number[] = [];
+      if (habit.routine === 'MORNING') hoursToSchedule.push(7);
+      else if (habit.routine === 'AFTERNOON') hoursToSchedule.push(14);
+      else if (habit.routine === 'EVENING') hoursToSchedule.push(18);
+      else if (habit.routine === 'ALL_DAY') hoursToSchedule.push(7, 14, 18);
+
+      let expoWeekdays: number[] = [];
+      if (habit.selectedDays) {
+        const days = habit.selectedDays.split(',').map(Number);
+        expoWeekdays = days.map(d => (d % 7) + 1);
+      }
+
+      for (const hour of hoursToSchedule) {
+        if (expoWeekdays.length > 0) {
+          for (const weekday of expoWeekdays) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: `💧 Nhắc nhở: ${habit.name}`,
+                body: `Đến giờ thực hiện thói quen của bạn rồi!`,
+                data: { habitId: habit.id },
+                sound: 'default',
+                android: { channelId: 'tm-alarms' },
+              } as any,
+              trigger: {
+                weekday: weekday,
+                hour: hour,
+                minute: 0,
+                repeats: true,
+              } as any,
+            });
+          }
+        } else {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `💧 Nhắc nhở: ${habit.name}`,
+              body: `Đến giờ thực hiện thói quen của bạn rồi!`,
+              data: { habitId: habit.id },
+              sound: 'default',
+              android: { channelId: 'tm-alarms' },
+            } as any,
+            trigger: {
+              hour: hour,
+              minute: 0,
+              repeats: true,
+            } as any,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error scheduling habit notifications:', e);
+    }
+  }
+
+  async cancelHabitNotifications(habitId: number) {
+    try {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const notificationsToCancel = scheduled.filter(n => n.content.data?.habitId === habitId);
+      
+      for (const n of notificationsToCancel) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      }
+    } catch (error) {
+      console.error('Error cancelling habit notifications:', error);
+    }
+  }
+
   private calculateTriggerDate(targetDate: any, startTime: any): Date | null {
     try {
       // Handle targetDate (could be string "2026-04-19" or Date object)

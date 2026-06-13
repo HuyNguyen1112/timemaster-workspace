@@ -1,367 +1,330 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Plus, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, Anchor, Calendar as CalendarIcon, Zap } from 'lucide-react-native';
 import AddTaskModal from '../../components/AddTaskModal';
-import TaskDetailModal from '../../components/TaskDetailModal';
+import AddEventModal from '../../components/AddEventModal';
 import { useAuth } from '../../context/AuthContext';
 import { taskService, Task } from '../../services/task.service';
-import { categoryService, Category } from '../../services/category.service';
+import { contextService, Context } from '../../services/context.service';
+import { eventService, Event } from '../../services/event.service';
+import { scheduleService, TimeBlock } from '../../services/schedule.service';
 import { notificationService } from '../../services/notification.service';
 import { useFocusEffect } from 'expo-router';
+import { useCustomAlert } from '../../components/CustomAlertContext';
+
+const HOUR_HEIGHT = 60; // 1 pixel per minute
 
 export default function CalendarScreen() {
+    const { showAlert } = useCustomAlert();
     const { user } = useAuth();
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date().getDate());
-    const [agenda, setAgenda] = useState<Task[]>([]);
-    const [allTaskDates, setAllTaskDates] = useState<string[]>([]);
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    
+    // Data states
+    const [contexts, setContexts] = useState<Context[]>([]);
+    const [events, setEvents] = useState<Event[]>([]);
+    const [fixedTasks, setFixedTasks] = useState<Task[]>([]);
+    const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
     const [loading, setLoading] = useState(false);
-    const [realCategories, setRealCategories] = useState<Category[]>([]);
-    
+
+    // Modal states
+    const [showAddTask, setShowAddTask] = useState(false);
+    const [showAddEvent, setShowAddEvent] = useState(false);
     const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [showDetailModal, setShowDetailModal] = useState(false);
-    
-    // Dynamic Date Logic
-    const [viewDate, setViewDate] = useState(new Date()); 
-    const currentYear = viewDate.getFullYear();
-    const currentMonth = viewDate.getMonth();
+    const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
+    const formatLocalISOString = (d: Date) => {
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
 
-    // Calculate days and layout
-    const daysInMonthCount = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const daysInMonth = Array.from({ length: daysInMonthCount }, (_, i) => i + 1);
-    const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 (Sun) to 6 (Sat)
+    const timeToMinutes = (timeStr: string) => {
+        if (!timeStr) return 0;
+        const t = timeStr.includes('T') ? timeStr.split('T')[1] : timeStr;
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
 
-    const fetchCategories = useCallback(async () => {
-        try {
-            const data = await categoryService.getCategories();
-            setRealCategories(data);
-        } catch (error) {
-            console.error('Failed to fetch categories:', error);
-        }
-    }, []);
-
-    const loadTasks = useCallback(async () => {
+    const loadData = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
-            const formattedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+            const dateStr = formatLocalISOString(selectedDate);
             
-            // Fetch selected date tasks AND all tasks for dots
-            const [selectedData, allData] = await Promise.all([
-                taskService.getTasksByDate(user.userId, formattedDate),
-                taskService.getTasks(user.userId)
+            const [contextsData, eventsData, allTasks, blocks] = await Promise.all([
+                contextService.getContexts(),
+                eventService.getEventsByDate(dateStr),
+                taskService.getTasksByDate(user.userId, dateStr),
+                scheduleService.getSchedule(dateStr)
             ]);
 
-            const sortedAgenda = selectedData.sort((a, b) => {
-                const timeA = a.startTime || '99:99';
-                const timeB = b.startTime || '99:99';
-                return timeA.localeCompare(timeB);
-            });
-
-            setAgenda(sortedAgenda);
+            setContexts(contextsData);
+            setEvents(eventsData);
+            setFixedTasks(allTasks.filter(t => t.isFixed));
+            setTimeBlocks(blocks);
             
-            // Extract unique dates for indicators
-            const dates = Array.from(new Set(allData.map(t => t.targetDate)));
-            setAllTaskDates(dates);
         } catch (error) {
-            console.error('Failed to load tasks:', error);
+            console.error('Failed to load data:', error);
         } finally {
             setLoading(false);
         }
-    }, [user, selectedDate, currentYear, currentMonth]);
+    }, [user, selectedDate]);
 
     useFocusEffect(
         useCallback(() => {
-            loadTasks();
-            fetchCategories();
-        }, [loadTasks, fetchCategories])
+            loadData();
+        }, [loadData])
     );
 
-    const handlePrevMonth = () => {
-        setViewDate(new Date(currentYear, currentMonth - 1, 1));
-        setSelectedDate(1);
+    const handlePrevDay = () => {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(selectedDate.getDate() - 1);
+        setSelectedDate(newDate);
     };
 
-    const handleNextMonth = () => {
-        setViewDate(new Date(currentYear, currentMonth + 1, 1));
-        setSelectedDate(1);
+    const handleNextDay = () => {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(selectedDate.getDate() + 1);
+        setSelectedDate(newDate);
     };
 
-    const getMatrixColor = (type: string) => {
-        const colors: any = { Q1: '#ef4444', Q2: '#8b5cf6', Q3: '#3b82f6', Q4: '#22c55e' };
-        return colors[type] || '#8b5cf6';
-    };
-
-    const toggleTask = async (taskId: number) => {
+    const handleToggleLock = async (blockId: number, locked: boolean) => {
         try {
-            if (!user) return;
-            const item = agenda.find(i => i.id === taskId);
-            const isCompleting = item?.status !== 'COMPLETED';
-            
-            setAgenda(prev => prev.map(item => 
-                item.id === taskId ? { ...item, status: item.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED' } : item
-            ));
-            await taskService.completeTask(user.userId, taskId);
-            
-            if (isCompleting) {
-                await notificationService.cancelTaskNotification(taskId);
-            }
+            // Optimistic update
+            setTimeBlocks(prev => prev.map(b => b.id === blockId ? { ...b, isLocked: locked } : b));
+            await scheduleService.lockTimeBlock(blockId, locked);
         } catch (error) {
-            console.error('Toggle failed:', error);
-            loadTasks(); 
+            showAlert({ title: 'Error', message: 'Failed to lock time block.', type: 'error' });
+            loadData(); // Revert
         }
     };
 
-    const handleTaskPress = (item: Task) => {
-        const mappedTask = {
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            matrix: item.matrixType,
-            category: item.categoryName,
-            categoryId: item.categoryId,
-            date: item.targetDate,
-            time: item.startTime?.substring(0, 5),
-            done: item.status === 'COMPLETED',
-            duration: Math.round(item.estimatedDuration * 60)
-        };
-        setSelectedTask(mappedTask);
-        setShowDetailModal(true);
-    };
-
-    const handleAddTask = async (taskData: any, isForced: boolean = false) => {
+    const handleAddTask = async (taskData: any) => {
         try {
             if (!user) return;
             const payload = {
                 title: taskData.title,
                 description: taskData.description || '',
                 targetDate: taskData.date,
-                startTime: taskData.time + ':00',
-                estimatedDuration: taskData.duration / 60,
+                startTime: taskData.time ? taskData.time + ':00' : undefined,
+                estimatedDuration: taskData.duration,
                 matrixType: taskData.matrix,
-                categoryId: taskData.categoryId,
-                force: isForced
+                contextId: taskData.contextId,
+                isFixed: taskData.isFixed
             };
-            let savedTask: Task;
+            
+            let savedTask;
             if (taskData.id) {
                 savedTask = await taskService.updateTask(user.userId, taskData.id, payload);
             } else {
                 savedTask = await taskService.createTask(user.userId, payload);
             }
 
-            // Schedule notification
             if (savedTask) {
                 await notificationService.scheduleTaskNotification(savedTask);
             }
-
-            setShowAddModal(false);
-            loadTasks();
+            setShowAddTask(false);
+            loadData();
         } catch (error: any) {
-            if (error.response?.status === 409) {
-                const conflictInfo = error.response.data;
-                Alert.alert(
-                    'Schedule Conflict',
-                    `${conflictInfo.message}\n\nConflicts:\n- ${conflictInfo.conflicts.join('\n- ')}\n\nDo you want to save anyway?`,
-                    Platform.OS === 'ios' ? [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Save Anyway', onPress: () => handleAddTask(taskData, true) }
-                    ] : [
-                        { text: 'Save Anyway', onPress: () => handleAddTask(taskData, true) },
-                        { text: 'Cancel', style: 'cancel' }
-                    ]
-                );
-            } else {
-                console.error('Operation failed:', error);
-                Alert.alert('Error', 'Operation failed. Please check inputs.');
-            }
+            showAlert({ title: 'Error', message: error.response?.data?.message || 'Operation failed.', type: 'error' });
         }
     };
 
-    const handleDeleteTask = async (id: number) => {
+    const handleAddEvent = async (eventData: any) => {
         try {
-            if (!user) return;
-            await taskService.deleteTask(user.userId, id);
-            await notificationService.cancelTaskNotification(id);
-            setShowDetailModal(false);
-            loadTasks();
-        } catch (error) {
-            console.error('Delete failed:', error);
+            if (eventData.id) {
+                await eventService.updateEvent(eventData.id, eventData);
+            } else {
+                await eventService.createEvent(eventData);
+            }
+            setShowAddEvent(false);
+            loadData();
+        } catch (error: any) {
+            showAlert({ title: 'Error', message: error.response?.data?.message || 'Failed to save event.', type: 'error' });
         }
+    };
+
+    const handleAutoSchedule = async () => {
+        try {
+            setLoading(true);
+            const dateStr = formatLocalISOString(selectedDate);
+            await scheduleService.recalculateSchedule(dateStr);
+            showAlert({ title: 'Thành công', message: 'Đã tự động xếp lịch thành công!', type: 'success' });
+            loadData();
+        } catch (error: any) {
+            showAlert({ title: 'Lỗi', message: error.response?.data?.message || 'Không thể xếp lịch.', type: 'error' });
+            setLoading(false);
+        }
+    };
+
+    const handleAddClick = () => {
+        setSelectedTask(null);
+        setShowAddTask(true);
     };
 
     return (
         <View style={styles.container}>
+            {/* Header */}
             <View style={styles.header}>
-                <View style={styles.monthNav}>
-                    <TouchableOpacity onPress={handlePrevMonth} style={styles.navBtn}>
-                        <ChevronLeft size={24} color="#ffffff" />
+                <Text style={styles.headerTitle}>Schedule</Text>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={handleAutoSchedule}>
+                        <CalendarIcon size={18} color="#f97316" />
                     </TouchableOpacity>
-                    <Text style={styles.title}>{monthNames[currentMonth]} {currentYear}</Text>
-                    <TouchableOpacity onPress={handleNextMonth} style={styles.navBtn}>
-                        <ChevronRight size={24} color="#ffffff" />
+                    <TouchableOpacity style={styles.actionBtn} onPress={handleAddClick}>
+                        <Plus size={20} color="#8b5cf6" />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            <View style={styles.calendarCard}>
-                <View style={styles.weekHeader}>
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                        <Text key={i} style={styles.weekDay}>{d}</Text>
+            {/* Date Navigator */}
+            <View style={styles.dateNavigator}>
+                <TouchableOpacity onPress={handlePrevDay} style={styles.navBtn}>
+                    <ChevronLeft size={24} color="#ffffff" />
+                </TouchableOpacity>
+                <Text style={styles.dateText}>
+                    {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </Text>
+                <TouchableOpacity onPress={handleNextDay} style={styles.navBtn}>
+                    <ChevronRight size={24} color="#ffffff" />
+                </TouchableOpacity>
+            </View>
+
+            {loading ? (
+                <ActivityIndicator color="#8b5cf6" style={{ marginTop: 40 }} />
+            ) : (
+                <ScrollView contentContainerStyle={styles.timelineContent} showsVerticalScrollIndicator={false}>
+                    {/* Grid Background */}
+                    {Array.from({ length: 25 }).map((_, i) => (
+                        <View key={`grid-${i}`} style={[styles.gridLine, { top: i * HOUR_HEIGHT }]}>
+                            <Text style={styles.hourText}>{`${i.toString().padStart(2, '0')}:00`}</Text>
+                            <View style={styles.gridLineDash} />
+                        </View>
                     ))}
-                </View>
-                <View style={styles.daysGrid}>
-                    {Array.from({ length: firstDayOfMonth }).map((_, i) => <View key={`empty-${i}`} style={styles.dayCell} />)}
-                    {daysInMonth.map(day => {
-                        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const hasTasks = allTaskDates.includes(dateStr);
-                        const isSelected = selectedDate === day;
 
-                        return (
-                            <TouchableOpacity
-                                key={day}
-                                style={[styles.dayCell, isSelected && styles.activeDayCell]}
-                                onPress={() => setSelectedDate(day)}
-                            >
-                                <Text style={[styles.dayText, isSelected && styles.activeDayText]}>{day}</Text>
-                                {hasTasks && <View style={[styles.dot, isSelected && { backgroundColor: '#ffffff' }]} />}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            </View>
+                    <View style={styles.eventsContainer}>
+                        {/* Context Regions */}
+                        {contexts.map(ctx => {
+                            const currentDayOfWeek = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay();
+                            const dailySchedules = ctx.schedules?.filter(s => s.dayOfWeek === currentDayOfWeek) || [];
+                            
+                            return dailySchedules.map(sch => {
+                                const startMins = timeToMinutes(sch.startTime);
+                                const endMins = timeToMinutes(sch.endTime);
+                                const height = endMins - startMins;
+                                return (
+                                    <View key={`ctx-${sch.id}`} style={[styles.contextRegion, { 
+                                        top: startMins, 
+                                        height: height, 
+                                        backgroundColor: ctx.colorCode + '15', 
+                                        borderLeftColor: ctx.colorCode 
+                                    }]}>
+                                        <Text style={[styles.contextRegionText, { color: ctx.colorCode }]}>{ctx.name.toUpperCase()}</Text>
+                                    </View>
+                                );
+                            });
+                        })}
 
-            <ScrollView contentContainerStyle={styles.agendaContent} showsVerticalScrollIndicator={false}>
-                <View style={styles.agendaHeader}>
-                    <Text style={styles.agendaTitle}>Schedule for {monthNames[currentMonth].substring(0, 3)} {selectedDate}</Text>
-                    {(() => {
-                        const now = new Date();
-                        const todayStr = now.toISOString().split('T')[0];
-                        const selectedDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
-                        const isPast = selectedDateStr < todayStr;
+                        {/* Events */}
+                        {events.map(ev => {
+                            const startMins = timeToMinutes(ev.startTime);
+                            const endMins = timeToMinutes(ev.endTime);
+                            const height = Math.max(endMins - startMins, 30);
+                            return (
+                                <TouchableOpacity key={`ev-${ev.id}`} style={[styles.eventBlock, { top: startMins, height: height }]} onPress={() => { setSelectedTask({ ...ev, isEvent: true }); setShowAddTask(true); }}>
+                                    <View style={styles.eventStripes} />
+                                    <Text style={styles.eventTitle}>{ev.title}</Text>
+                                    <Text style={styles.timeTextSmall}>{ev.startTime.split('T')[1].substring(0,5)} - {ev.endTime.split('T')[1].substring(0,5)}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
 
-                        if (isPast) return null;
-
-                        return (
-                            <TouchableOpacity style={styles.addButton} onPress={() => {
-                                const isToday = selectedDateStr === todayStr;
-                                
-                                const formattedTime = isToday 
-                                    ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` 
-                                    : '00:00';
-                                    
-                                setSelectedTask({ date: selectedDateStr, time: formattedTime });
-                                setShowAddModal(true);
-                            }}>
-                                <Plus size={20} color="#ffffff" />
-                            </TouchableOpacity>
-                        );
-                    })()}
-                </View>
-
-                {loading ? (
-                    <ActivityIndicator color="#8b5cf6" style={{ marginTop: 20 }} />
-                ) : agenda.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>No tasks for this day. Rest is productive too!</Text>
-                    </View>
-                ) : (
-                    agenda.map((item) => (
-                        <View key={item.id} style={styles.agendaItem}>
-                            <Text style={styles.timeText}>{item.startTime?.substring(0, 5) || '--:--'}</Text>
-                            <View style={[styles.taskCard, { borderLeftColor: getMatrixColor(item.matrixType), borderLeftWidth: 4 }]}>
-                                <TouchableOpacity 
-                                    style={styles.taskCardContent}
-                                    onPress={() => handleTaskPress(item)}
-                                >
-                                    <Text style={[styles.taskTitle, item.status === 'COMPLETED' && styles.taskTitleDone]}>{item.title}</Text>
-                                    <View style={styles.taskSubRow}>
-                                        <Text style={styles.taskSub}>{item.matrixType} • {item.estimatedDuration}h</Text>
-                                        {item.categoryName && <Text style={styles.catBadge}>{item.categoryName}</Text>}
+                        {/* Fixed Tasks */}
+                        {fixedTasks.map(ft => {
+                            const startMins = timeToMinutes(ft.startTime);
+                            const height = Math.max((ft.estimatedDuration || 1) * 60, 30);
+                            return (
+                                <TouchableOpacity key={`ft-${ft.id}`} style={[styles.fixedTaskBlock, { top: startMins, height: height }]} onPress={() => { setSelectedTask(ft); setShowAddTask(true); }}>
+                                    <View style={styles.fixedHeader}>
+                                        <Anchor size={14} color="#f59e0b" />
+                                        <Text style={styles.fixedTaskTitle}>{ft.title}</Text>
                                     </View>
                                 </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={styles.statusIconContainer}
-                                    onPress={() => toggleTask(item.id)}
-                                >
-                                    {item.status === 'COMPLETED' ? (
-                                        <CheckCircle2 size={22} color="#22c55e" />
-                                    ) : (
-                                        <Circle size={22} color="#4b5563" />
+                            );
+                        })}
+
+                        {/* Flex Time Blocks */}
+                        {timeBlocks.map(tb => {
+                            const startMins = timeToMinutes(tb.startTime);
+                            const endMins = timeToMinutes(tb.endTime);
+                            const height = Math.max(endMins - startMins, 20);
+                            return (
+                                <View key={`tb-${tb.id}`} style={[styles.timeBlock, { top: startMins, height: height, borderColor: tb.isLocked ? '#f59e0b' : '#3b82f6' }]}>
+                                    <View style={styles.timeBlockHeader}>
+                                        <Zap size={14} color="#3b82f6" />
+                                        <Text style={styles.timeBlockTitle} numberOfLines={1}>{tb.taskTitle}</Text>
+                                    </View>
+                                    {height >= 40 && (
+                                        <Text style={styles.timeBlockSub}>{tb.contextName} • {tb.matrixType}</Text>
                                     )}
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))
-                )}
-            </ScrollView>
+                                    <TouchableOpacity 
+                                        style={styles.lockBtn} 
+                                        onPress={() => handleToggleLock(tb.id, !tb.isLocked)}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        {tb.isLocked ? <Lock size={16} color="#f59e0b" /> : <Unlock size={16} color="#9ca3af" />}
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </ScrollView>
+            )}
 
             <AddTaskModal
-                visible={showAddModal}
-                onClose={() => setShowAddModal(false)}
+                visible={showAddTask}
+                onClose={() => setShowAddTask(false)}
                 onAdd={handleAddTask}
+                onAddEvent={handleAddEvent}
                 task={selectedTask}
-                categories={realCategories}
+                contexts={contexts}
             />
 
-            <TaskDetailModal
-                visible={showDetailModal}
-                onClose={() => setShowDetailModal(false)}
-                task={selectedTask}
-                onEdit={(task) => {
-                    setSelectedTask(task);
-                    setShowAddModal(true);
-                }}
-                onDelete={handleDeleteTask}
-                onToggle={async (id) => {
-                    await toggleTask(id);
-                    setSelectedTask((prev: any) => prev ? { ...prev, done: !prev.done } : null);
-                }}
-            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#130f1e' },
-    header: { padding: 24, paddingTop: 48, paddingBottom: 16 },
-    monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    navBtn: { padding: 4 },
-    title: { fontSize: 24, fontWeight: 'bold', color: '#ffffff' },
-    calendarCard: { backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 24, borderRadius: 24, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 24 },
-    weekHeader: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 },
-    weekDay: { color: '#6b7280', fontSize: 12, fontWeight: 'bold', width: '13%', textAlign: 'center' },
-    daysGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', paddingHorizontal: 8 },
-    dayCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, marginBottom: 4, paddingBottom: 4 },
-    activeDayCell: { backgroundColor: '#8b5cf6' },
-    dayText: { color: '#d1d5db', fontSize: 14, fontWeight: '500' },
-    activeDayText: { color: '#ffffff', fontWeight: 'bold' },
-    dot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: '#8b5cf6',
-        marginTop: 2,
-    },
-    agendaContent: { padding: 24, paddingTop: 0, paddingBottom: 120 },
-    agendaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    agendaTitle: { color: '#f3f4f6', fontSize: 18, fontWeight: '600' },
-    addButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#8b5cf6', alignItems: 'center', justifyContent: 'center' },
-    agendaItem: { flexDirection: 'row', marginBottom: 16 },
-    timeText: { width: 60, color: '#9ca3af', fontSize: 12, marginTop: 16, fontWeight: '600' },
-    taskCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    taskCardContent: { flex: 1, padding: 16 },
-    statusIconContainer: { padding: 16, justifyContent: 'center', alignItems: 'center' },
-    taskTitle: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-    taskTitleDone: { textDecorationLine: 'line-through', color: '#4b5563', opacity: 0.7 },
-    taskSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-    taskSub: { color: '#9ca3af', fontSize: 12 },
-    catBadge: { color: '#a855f7', fontSize: 10, backgroundColor: 'rgba(168,85,247,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: 'bold' },
-    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderStyle: 'dashed' },
-    emptyText: { color: '#4b5563', fontSize: 14, textAlign: 'center' }
+    header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#ffffff' },
+    headerActions: { flexDirection: 'row', gap: 12 },
+    actionBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 16 },
+    navBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 },
+    dateText: { fontSize: 16, fontWeight: '600', color: '#f3f4f6' },
+    
+    timelineContent: { position: 'relative', height: 24 * HOUR_HEIGHT + 100, paddingBottom: 100 },
+    gridLine: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16 },
+    hourText: { width: 45, color: '#6b7280', fontSize: 12, fontWeight: '500', marginTop: -8 },
+    gridLineDash: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginTop: 0 },
+    
+    eventsContainer: { position: 'absolute', left: 60, right: 16, top: 0, bottom: 0 },
+    
+    contextRegion: { position: 'absolute', left: 0, right: 0, borderLeftWidth: 4, borderRadius: 8, padding: 8, zIndex: 0 },
+    contextRegionText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.8 },
+    
+    eventBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: '#3f3f46', borderRadius: 8, padding: 8, zIndex: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#52525b' },
+    eventStripes: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.2)', opacity: 0.1 },
+    eventTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
+    timeTextSmall: { color: '#a1a1aa', fontSize: 10, marginTop: 4 },
+    
+    fixedTaskBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: 'rgba(245, 158, 11, 0.15)', borderRadius: 8, padding: 8, zIndex: 11, borderWidth: 1, borderColor: '#f59e0b' },
+    fixedHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    fixedTaskTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
+    
+    timeBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: 'rgba(59, 130, 246, 0.15)', borderRadius: 8, padding: 8, zIndex: 12, borderWidth: 1, borderLeftWidth: 4, flexDirection: 'column' },
+    timeBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 24 },
+    timeBlockTitle: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+    timeBlockSub: { color: '#9ca3af', fontSize: 10, marginTop: 4 },
+    lockBtn: { position: 'absolute', top: 8, right: 8, zIndex: 20 },
 });

@@ -3,6 +3,7 @@ package com.vinhhuy.timemaster.controller;
 import com.vinhhuy.timemaster.dto.HabitCheckInRequest;
 import com.vinhhuy.timemaster.dto.HabitRequest;
 import com.vinhhuy.timemaster.dto.HabitResponse;
+import com.vinhhuy.timemaster.security.SecurityUtils;
 import com.vinhhuy.timemaster.service.HabitService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,42 +19,41 @@ public class HabitController {
     private final HabitService habitService;
 
     @PostMapping
-    public ResponseEntity<HabitResponse> createHabit(@RequestHeader("userId") Long userId,
-            @RequestBody HabitRequest request) {
-        // Trong môi trường JWT thực tế, userId nên được lấy từ SecurityContextHolder
-        // Tạm thời lấy qua Header giống thiết kế hiện tại hoặc interceptor
+    public ResponseEntity<HabitResponse> createHabit(@RequestBody HabitRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(habitService.createHabit(userId, request));
     }
 
     @GetMapping
-    public ResponseEntity<List<HabitResponse>> getHabitsByUser(@RequestHeader("userId") Long userId) {
+    public ResponseEntity<List<HabitResponse>> getHabitsByUser() {
+        Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(habitService.getHabitsByUser(userId));
     }
 
     @GetMapping("/{habitId}")
-    public ResponseEntity<HabitResponse> getHabitById(@PathVariable Long habitId,
-            @RequestHeader("userId") Long userId) {
+    public ResponseEntity<HabitResponse> getHabitById(@PathVariable Long habitId) {
+        Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(habitService.getHabitById(habitId, userId));
     }
 
     @PutMapping("/{habitId}")
     public ResponseEntity<HabitResponse> updateHabit(@PathVariable Long habitId,
-            @RequestHeader("userId") Long userId,
             @RequestBody HabitRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(habitService.updateHabit(habitId, userId, request));
     }
 
     @DeleteMapping("/{habitId}")
-    public ResponseEntity<Void> deleteHabit(@PathVariable Long habitId,
-            @RequestHeader("userId") Long userId) {
+    public ResponseEntity<Void> deleteHabit(@PathVariable Long habitId) {
+        Long userId = SecurityUtils.getCurrentUserId();
         habitService.deleteHabit(habitId, userId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{habitId}/checkin")
     public ResponseEntity<HabitResponse> checkIn(@PathVariable Long habitId,
-            @RequestHeader("userId") Long userId,
             @RequestBody HabitCheckInRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(habitService.checkIn(habitId, userId, request));
     }
 }

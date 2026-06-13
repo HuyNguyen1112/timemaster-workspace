@@ -10,9 +10,12 @@ export interface Task {
   estimatedDuration: number;
   matrixType: 'Q1' | 'Q2' | 'Q3' | 'Q4';
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  categoryName?: string;
+  contextId?: number;
+  contextName?: string;
   userId: number;
-  categoryId?: number;
+  isFixed: boolean;
+  remainingDuration?: number;
+  isOverloaded?: boolean;
 }
 
 class TaskService {
@@ -42,7 +45,7 @@ class TaskService {
 
   async completeTask(userId: number, taskId: number): Promise<Task> {
     // Backend: PUT /api/tasks/{taskId}/complete?userId=1
-    const response = await coreApi.put(`${ENDPOINTS.TASKS.BASE}/${taskId}/complete?userId=${userId}`);
+    const response = await coreApi.put(ENDPOINTS.TASKS.COMPLETE(taskId) + `?userId=${userId}`);
     return response.data;
   }
 }

@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { BrainCircuit, Lock, Mail, ArrowRight } from 'lucide-react-native';
+import { useCustomAlert } from '../../components/CustomAlertContext';
 
 export default function LoginScreen() {
+    const { showAlert } = useCustomAlert();
     const router = useRouter();
     const { signIn } = useAuth();
     const [email, setEmail] = useState(''); 
@@ -13,7 +15,7 @@ export default function LoginScreen() {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
+            showAlert({ title: 'Lỗi', message: 'Vui lòng nhập đầy đủ email và mật khẩu', type: 'error' });
             return;
         }
 
@@ -28,7 +30,7 @@ export default function LoginScreen() {
         } catch (error: any) {
             console.error('Login Error details:', error.response?.data || error.message);
             const errorMsg = error.response?.data?.message || 'Check your credentials and connection';
-            Alert.alert('Login Failed', errorMsg);
+            showAlert({ title: 'Login Failed', message: errorMsg, type: 'error' });
         } finally {
             setLoading(false);
         }

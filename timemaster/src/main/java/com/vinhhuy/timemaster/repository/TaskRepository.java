@@ -14,15 +14,17 @@ import java.util.List;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    @Modifying
-    @Query("UPDATE Task t SET t.category = null WHERE t.category.id = :categoryId")
-    void updateCategoryToNull(@Param("categoryId") Long categoryId);
+    long countByContextId(Long contextId);
+
 
         // Lấy tất cả công việc của một User
         List<Task> findByUserId(Long userId);
 
         // Lấy công việc theo ngày
         List<Task> findByUserIdAndTargetDate(Long userId, LocalDate targetDate);
+
+        // Lấy công việc cố định theo ngày
+        List<Task> findByUserIdAndTargetDateAndIsFixedTrue(Long userId, LocalDate targetDate);
 
         // Lấy công việc của User theo Trạng thái (Ví dụ: Lấy các việc CHƯA HOÀN THÀNH)
         List<Task> findByUserIdAndStatus(Long userId, Task.TaskStatus status);
@@ -36,6 +38,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
         List<Task> findTasksForToday(@Param("userId") Long userId,
                         @Param("startOfDay") LocalDateTime startOfDay,
                         @Param("endOfDay") LocalDateTime endOfDay);
+
+
+
+        // Lấy task chưa xong có deadline >= ngày chỉ định — dùng cho phân bổ đa ngày
+        @Query("SELECT t FROM Task t WHERE t.user.id = :userId AND t.status <> 'COMPLETED' AND t.targetDate >= :date")
+        List<Task> findFlexPendingTasksWithDeadlineOnOrAfter(@Param("userId") Long userId, @Param("date") LocalDate date);
 
         // Đếm số công việc đã hoàn thành trong ngày theo từng ô Ma trận (Q1, Q2...)
         @Query("SELECT COUNT(t) FROM Task t WHERE t.user.id = :userId AND t.status = 'COMPLETED' AND t.matrixType = :matrixType AND t.createdAt >= :startOfDay AND t.createdAt <= :endOfDay")

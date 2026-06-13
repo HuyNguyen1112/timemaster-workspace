@@ -7,8 +7,6 @@ import lombok.Data;
 @Builder
 public class TaskRequest {
     private String title;
-    private String startTime;
     private Double estimatedDuration;
     private String matrixType;
-    private Long categoryId;
 }

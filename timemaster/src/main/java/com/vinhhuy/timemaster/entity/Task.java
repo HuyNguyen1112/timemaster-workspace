@@ -4,11 +4,12 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 @Entity
 @Table(name = "tasks")
-@Data @NoArgsConstructor @AllArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,9 +19,6 @@ public class Task {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
 
     @Column(nullable = false)
     private String title;
@@ -28,11 +26,28 @@ public class Task {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    private LocalTime startTime; // Giờ dự kiến bắt đầu
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean isFixed = false;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean isOverloaded = false;
+
+    @Column(name = "start_time")
+    private java.time.LocalTime startTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "context_id", nullable = true) // Context is optional for fixed tasks
+    private Context context;
+
     @Column(name = "target_date")
-    private LocalDate targetDate; // Ngày dự kiến thực hiện
+    private LocalDate targetDate;
 
     private Double estimatedDuration; // Thời lượng dự kiến (giờ)
+
+    private Integer remainingDuration; // Thời lượng còn lại (phút)
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TimeBlock> timeBlocks;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

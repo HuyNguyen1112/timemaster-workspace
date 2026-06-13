@@ -33,6 +33,8 @@ public class PomodoroSession {
 
     private Integer durationMinutes; // VD: 25
 
+    private Integer loggedSeconds;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionStatus status;

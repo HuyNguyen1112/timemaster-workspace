@@ -2,6 +2,10 @@ package com.vinhhuy.timemaster.mcp;
 
 import com.vinhhuy.timemaster.dto.TaskRequest;
 import com.vinhhuy.timemaster.service.TaskService;
+import com.vinhhuy.timemaster.service.SchedulingService;
+import com.vinhhuy.timemaster.service.EventService;
+import com.vinhhuy.timemaster.service.ContextService;
+import com.vinhhuy.timemaster.dto.EventRequest;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
@@ -10,22 +14,55 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Configuration
 @Slf4j
 public class McpTaskConfiguration {
 
-        public record McpCreateTaskParams(
+        public record McpCreateFlexibleTaskParams(
                         Long userId,
                         String title,
-                        String description,
                         LocalDate targetDate,
-                        LocalTime startTime,
                         Double estimatedDuration,
-                        String matrixType,
-                        Long categoryId,
-                        Boolean force) {
+                        Long guessedContextId,
+                        String guessedMatrixType) {
+        }
+
+        public record McpCreateFixedTaskParams(
+                        Long userId,
+                        String title,
+                        LocalDate targetDate,
+                        java.time.LocalTime startTime,
+                        Double estimatedDuration,
+                        Long guessedContextId,
+                        String guessedMatrixType) {
+        }
+
+        public record McpCreateEventParams(
+                        Long userId,
+                        String title,
+                        java.time.LocalDateTime startTime,
+                        java.time.LocalDateTime endTime,
+                        Long guessedContextId) {
+        }
+
+        public record EventIdUserParams(Long eventId, Long userId) {
+        }
+
+        public record McpUpdateEventParams(
+                        Long eventId,
+                        Long userId,
+                        String title,
+                        java.time.LocalDateTime startTime,
+                        java.time.LocalDateTime endTime,
+                        Long guessedContextId) {
+        }
+
+        public record RecalculateScheduleParams(
+                        Long userId,
+                        LocalDate date,
+                        Long contextId) {
         }
 
         public record UserIdParam(Long userId) {
@@ -43,31 +80,125 @@ public class McpTaskConfiguration {
                         String title,
                         String description,
                         java.time.LocalDate targetDate,
-                        java.time.LocalTime startTime,
                         Double estimatedDuration,
                         String matrixType,
-                        Long categoryId,
-                        Boolean force) {
+                        Long contextId,
+                        Boolean isFixed,
+                        java.time.LocalTime startTime) {
         }
 
         @Bean
-        public ToolCallback mcpCreateTaskTool(TaskService taskService) {
+        public ToolCallback mcpGetContextsTool(ContextService contextService) {
                 return FunctionToolCallback
-                                .builder("mcpCreateTask", (McpCreateTaskParams params) -> {
-                                        log.info(">>> MCP TOOL [mcpCreateTask]: userId={}, title={}", params.userId(), params.title());
+                                .builder("mcpGetContexts", (UserIdParam params) -> {
+                                        log.info(">>> MCP TOOL [mcpGetContexts]: userId={}", params.userId());
+                                        return contextService.getAllContextsByUser(params.userId());
+                                })
+                                .description("Lấy danh sách các Ngữ cảnh (Context) của người dùng. Dùng công cụ này TRƯỚC KHI tạo Task/Event để BIẾT CÁC ID NGỮ CẢNH (contextId), từ đó AI TỰ ĐOÁN contextId thay vì hỏi người dùng.")
+                                .inputType(UserIdParam.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpCreateFlexibleTaskTool(TaskService taskService) {
+                return FunctionToolCallback
+                                .builder("mcpCreateFlexibleTask", (McpCreateFlexibleTaskParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpCreateFlexibleTask]: userId={}, title={}", params.userId(), params.title());
                                         TaskRequest request = new TaskRequest(
                                                         params.title(),
-                                                        params.description(),
+                                                        "",
                                                         params.targetDate(),
-                                                        params.startTime(),
                                                         params.estimatedDuration(),
-                                                        params.matrixType(),
-                                                        params.categoryId(),
-                                                        params.force() != null && params.force());
+                                                        params.guessedMatrixType() != null ? params.guessedMatrixType() : "Q2",
+                                                        params.guessedContextId(),
+                                                        false,
+                                                        null);
                                         return taskService.createTask(params.userId(), request);
                                 })
-                                .description("Tạo mới một công việc (Task). BẮT BUỘC cung cấp userId (lấy từ USER_CONTEXT_JSON). Các tham số khác: title, targetDate (ngày thực hiện), startTime (giờ bắt đầu), estimatedDuration (thời lượng dự kiến), matrixType (Q1, Q2, Q3, Q4), force (true nếu muốn lưu đè khi trùng lịch). LƯU Ý: estimatedDuration và matrixType là TÙY CHỌN, AI tự dự đoán dựa trên tính chất công việc.")
-                                .inputType(McpCreateTaskParams.class)
+                                .description("DÙNG CHO CÔNG VIỆC LINH HOẠT (Chỉ có Hạn chót/Deadline, KHÔNG có giờ bắt đầu). Hệ thống sẽ Tự Động Xếp Lịch. BẮT BUỘC: title, targetDate (hạn chót), estimatedDuration (SỐ GIỜ, vd: 30 phút là 0.5). AI TỰ ĐOÁN guessedContextId và guessedMatrixType dựa trên Tiêu đề (không cần hỏi user).")
+                                .inputType(McpCreateFlexibleTaskParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpCreateFixedTaskTool(TaskService taskService) {
+                return FunctionToolCallback
+                                .builder("mcpCreateFixedTask", (McpCreateFixedTaskParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpCreateFixedTask]: userId={}, title={}", params.userId(), params.title());
+                                        TaskRequest request = new TaskRequest(
+                                                        params.title(),
+                                                        "",
+                                                        params.targetDate(),
+                                                        params.estimatedDuration(),
+                                                        params.guessedMatrixType() != null ? params.guessedMatrixType() : "Q1",
+                                                        params.guessedContextId(),
+                                                        true,
+                                                        params.startTime());
+                                        return taskService.createTask(params.userId(), request);
+                                })
+                                .description("DÙNG CHO CÔNG VIỆC CỐ ĐỊNH (Bắt buộc phải làm vào 1 KHUNG GIỜ CỤ THỂ). BẮT BUỘC: title, targetDate, startTime, estimatedDuration (SỐ GIỜ, vd: 1.5). AI TỰ ĐOÁN guessedContextId và guessedMatrixType.")
+                                .inputType(McpCreateFixedTaskParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpCreateEventTool(EventService eventService) {
+                return FunctionToolCallback
+                                .builder("mcpCreateEvent", (McpCreateEventParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpCreateEvent]: userId={}, title={}", params.userId(), params.title());
+                                        EventRequest request = new EventRequest(
+                                                params.title(),
+                                                params.startTime(),
+                                                params.endTime() != null ? params.endTime() : params.startTime().plusHours(1),
+                                                params.guessedContextId()
+                                        );
+                                        return eventService.createEvent(params.userId(), request);
+                                })
+                                .description("DÙNG CHO SỰ KIỆN / CUỘC HẸN (Đi chơi, họp, khám bệnh, dự tiệc...). BẮT BUỘC: title, startTime, endTime. AI TỰ ĐOÁN guessedContextId.")
+                                .inputType(McpCreateEventParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpGetEventsByDateTool(EventService eventService) {
+                return FunctionToolCallback
+                                .builder("mcpGetEventsByDate", (UserDateParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpGetEventsByDate]: userId={}, date={}", params.userId(), params.targetDate());
+                                        return eventService.getEventsByDate(params.userId(), params.targetDate());
+                                })
+                                .description("Lấy danh sách Sự kiện / Cuộc hẹn của người dùng trong một ngày cụ thể. BẮT BUỘC cung cấp userId và targetDate.")
+                                .inputType(UserDateParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpUpdateEventTool(EventService eventService) {
+                return FunctionToolCallback
+                                .builder("mcpUpdateEvent", (McpUpdateEventParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpUpdateEvent]: eventId={}, userId={}", params.eventId(), params.userId());
+                                        EventRequest request = new EventRequest(
+                                                params.title(),
+                                                params.startTime(),
+                                                params.endTime() != null ? params.endTime() : params.startTime().plusHours(1),
+                                                params.guessedContextId()
+                                        );
+                                        return eventService.updateEvent(params.eventId(), params.userId(), request);
+                                })
+                                .description("Cập nhật lại Sự kiện đã tồn tại. BẮT BUỘC cung cấp eventId và userId (lấy từ USER_CONTEXT_JSON).")
+                                .inputType(McpUpdateEventParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpDeleteEventTool(EventService eventService) {
+                return FunctionToolCallback
+                                .builder("mcpDeleteEvent", (EventIdUserParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpDeleteEvent]: eventId={}, userId={}", params.eventId(), params.userId());
+                                        eventService.deleteEvent(params.eventId(), params.userId());
+                                        return "Đã xóa thành công Sự kiện ID: " + params.eventId();
+                                })
+                                .description("Hủy/Xóa một Sự kiện vĩnh viễn. BẮT BUỘC cung cấp eventId và userId (lấy từ USER_CONTEXT_JSON).")
+                                .inputType(EventIdUserParams.class)
                                 .build();
         }
 
@@ -129,15 +260,54 @@ public class McpTaskConfiguration {
                                                         params.title(),
                                                         params.description(),
                                                         params.targetDate(),
-                                                        params.startTime(),
                                                         params.estimatedDuration(),
                                                         params.matrixType(),
-                                                        params.categoryId(),
-                                                        params.force() != null && params.force());
+                                                        params.contextId(),
+                                                        params.isFixed(),
+                                                        params.startTime());
                                         return taskService.updateTask(params.taskId(), params.userId(), request);
                                 })
-                                .description("Cập nhật lại công việc đã tồn tại. BẮT BUỘC cung cấp taskId và userId (lấy từ USER_CONTEXT_JSON).")
+                                .description("Cập nhật lại công việc đã tồn tại. BẮT BUỘC cung cấp taskId và userId (lấy từ USER_CONTEXT_JSON). Lưu ý: estimatedDuration TÍNH BẰNG GIỜ (VD: 30 phút -> 0.5).")
                                 .inputType(McpUpdateTaskParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpRecalculateScheduleTool(SchedulingService schedulingService) {
+                return FunctionToolCallback
+                                .builder("recalculate_schedule", (RecalculateScheduleParams params) -> {
+                                        log.info(">>> MCP TOOL [recalculate_schedule]: userId={}, date={}, contextId={}", 
+                                            params.userId(), params.date(), params.contextId());
+                                        schedulingService.recalculateSchedule(params.userId(), params.date(), params.contextId());
+                                        return "Đã tính toán và sắp xếp lại lịch tự động thành công.";
+                                })
+                                .description("Triggers the Simplex algorithm to auto-assign all pending tasks into the calendar. You MUST call this tool immediately after creating a new task, or when the user asks to optimize their day.")
+                                .inputType(RecalculateScheduleParams.class)
+                                .build();
+        }
+
+        @Bean
+        public ToolCallback mcpGetScheduleTool(com.vinhhuy.timemaster.repository.TimeBlockRepository timeBlockRepository) {
+                return FunctionToolCallback
+                                .builder("mcpGetSchedule", (UserDateParams params) -> {
+                                        log.info(">>> MCP TOOL [mcpGetSchedule]: userId={}, date={}", params.userId(), params.targetDate());
+                                        java.time.LocalDateTime dayStart = params.targetDate().atStartOfDay();
+                                        java.time.LocalDateTime dayEnd = params.targetDate().plusDays(1).atStartOfDay();
+                                        var blocks = timeBlockRepository.findByUserIdAndDateRange(params.userId(), dayStart, dayEnd);
+                                        return blocks.stream()
+                                                .map(tb -> new com.vinhhuy.timemaster.dto.TimeBlockResponse(
+                                                        tb.getId(),
+                                                        tb.getTask().getId(),
+                                                        tb.getTask().getTitle(),
+                                                        tb.getTask().getMatrixType() != null ? tb.getTask().getMatrixType().name() : null,
+                                                        tb.getTask().getContext() != null ? tb.getTask().getContext().getName() : null,
+                                                        tb.getStartTime(),
+                                                        tb.getEndTime()
+                                                ))
+                                                .collect(java.util.stream.Collectors.toList());
+                                })
+                                .description("Xem lịch trình (danh sách TimeBlock) của người dùng theo ngày. Dùng khi user hỏi 'hôm nay tôi có gì?', 'lịch ngày mai ra sao?'. BẮT BUỘC cung cấp userId và targetDate.")
+                                .inputType(UserDateParams.class)
                                 .build();
         }
 }

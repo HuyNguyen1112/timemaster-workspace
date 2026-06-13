@@ -60,6 +60,15 @@ public class HabitServiceImpl implements HabitService {
             habit.setFrequency(Habit.Frequency.DAILY);
         }
 
+        if (request.getRoutine() != null) {
+            try {
+                habit.setRoutine(Habit.Routine.valueOf(request.getRoutine().toUpperCase()));
+            } catch (Exception e) {
+                habit.setRoutine(Habit.Routine.ALL_DAY);
+            }
+        }
+        habit.setSelectedDays(request.getSelectedDays());
+
         Habit saved = habitRepository.save(habit);
         HabitResponse response = populateStats(saved, false);
 
@@ -157,6 +166,14 @@ public class HabitServiceImpl implements HabitService {
             habit.setUnit(request.getUnit());
         if (request.getColorCode() != null)
             habit.setColorCode(request.getColorCode());
+        if (request.getRoutine() != null) {
+            try {
+                habit.setRoutine(Habit.Routine.valueOf(request.getRoutine().toUpperCase()));
+            } catch (Exception e) {}
+        }
+        if (request.getSelectedDays() != null) {
+            habit.setSelectedDays(request.getSelectedDays());
+        }
 
         Habit updated = habitRepository.save(habit);
         HabitResponse response = populateStats(updated, false);
@@ -204,6 +221,17 @@ public class HabitServiceImpl implements HabitService {
 
         log.setHabit(habit);
         log.setLogDate(logDate);
+
+        // Cooldown check for "times" or "lần"
+        if (log.getId() != null && log.getUpdatedAt() != null) {
+            String u = habit.getUnit() != null ? habit.getUnit().toLowerCase() : "";
+            if (u.equals("lần") || u.equals("times") || u.equals("time")) {
+                long minutesSinceLastUpdate = java.time.Duration.between(log.getUpdatedAt(), java.time.LocalDateTime.now()).toMinutes();
+                if (minutesSinceLastUpdate < 5) {
+                    throw new RuntimeException("Vui lòng đợi 5 phút giữa các lần check-in để tránh spam.");
+                }
+            }
+        }
 
         int newProgressValue = request.getProgressValue() != null ? request.getProgressValue() : habit.getDailyGoal();
 
@@ -277,6 +305,7 @@ public class HabitServiceImpl implements HabitService {
                             .logDate(l.getLogDate())
                             .progressValue(l.getProgressValue())
                             .completed(l.isCompleted())
+                            .updatedAt(l.getUpdatedAt())
                             .build())
                     .collect(Collectors.toList());
             response.setRecentLogs(recentLogs);

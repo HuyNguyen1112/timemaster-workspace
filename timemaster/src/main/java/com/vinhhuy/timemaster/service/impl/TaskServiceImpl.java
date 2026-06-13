@@ -2,26 +2,30 @@ package com.vinhhuy.timemaster.service.impl;
 
 import com.vinhhuy.timemaster.dto.TaskRequest;
 import com.vinhhuy.timemaster.dto.TaskResponse;
-import com.vinhhuy.timemaster.entity.Category;
 import com.vinhhuy.timemaster.entity.Task;
 import com.vinhhuy.timemaster.entity.User;
 import com.vinhhuy.timemaster.mapper.TaskMapper;
-import com.vinhhuy.timemaster.exception.ConflictException;
-import com.vinhhuy.timemaster.repository.CategoryRepository;
+import com.vinhhuy.timemaster.repository.ContextRepository;
+import com.vinhhuy.timemaster.repository.EventRepository;
 import com.vinhhuy.timemaster.repository.TaskRepository;
+import com.vinhhuy.timemaster.repository.TimeBlockRepository;
 import com.vinhhuy.timemaster.repository.UserRepository;
+import com.vinhhuy.timemaster.service.SchedulingService;
 import com.vinhhuy.timemaster.service.TaskService;
 import com.vinhhuy.timemaster.service.VectorSyncService;
+import com.vinhhuy.timemaster.entity.Event;
+import com.vinhhuy.timemaster.entity.TimeBlock;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,10 +36,15 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    private final CategoryRepository categoryRepository;
+    private final ContextRepository contextRepository;
+    private final EventRepository eventRepository;
+    private final TimeBlockRepository timeBlockRepository;
     private final TaskMapper taskMapper;
     private final VectorSyncService vectorSyncService;
     private final HttpServletRequest httpServletRequest;
+
+    @Autowired @Lazy
+    private SchedulingService schedulingService;
 
     @Override
     @Transactional
@@ -44,24 +53,21 @@ public class TaskServiceImpl implements TaskService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
 
-        // 2. Kiểm tra thời gian thực hiện (không cho phép quá khứ)
-        LocalDateTime startDateTime = LocalDateTime.of(request.targetDate(), request.startTime());
-        if (startDateTime.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Thời gian thực hiện không thể ở quá khứ.");
+        // 2. Validate cơ bản
+        if (request.targetDate().isBefore(LocalDate.now())) {
+            throw new RuntimeException("Ngày thực hiện không thể ở quá khứ.");
         }
 
-        // Kiểm tra trùng lịch (Overlap)
-        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), null,
-                request.force());
-
-        // 3. Khởi tạo Entity Task mới
         Task task = new Task();
         task.setUser(user);
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
-        task.setStartTime(request.startTime());
         task.setEstimatedDuration(request.estimatedDuration() != null ? request.estimatedDuration() : 1.0);
+        task.setRemainingDuration(task.getEstimatedDuration() != null ? (int) (task.getEstimatedDuration() * 60) : 60);
         task.setDescription(request.description());
+        
+        task.setIsFixed(request.isFixed() != null ? request.isFixed() : false);
+        task.setStartTime(request.startTime());
 
         // Chuyển từ String (Q1, Q2) sang Enum với giá trị mặc định là Q4
         String mType = (request.matrixType() != null && !request.matrixType().isBlank())
@@ -75,21 +81,50 @@ public class TaskServiceImpl implements TaskService {
 
         task.setStatus(Task.TaskStatus.PENDING); // Mặc định là đang chờ xử lý
 
-        // 3. Xử lý Category nếu người dùng có truyền lên
-        if (request.categoryId() != null) {
-            Category category = categoryRepository.findById(request.categoryId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + request.categoryId()));
-            task.setCategory(category);
+        // Xử lý Context
+        if (task.getIsFixed()) {
+            // Fixed Task không cần context
+            task.setContext(null);
+            
+            // Validate xem có startTime không
+            if (task.getStartTime() == null) {
+                throw new RuntimeException("Công việc cố định yêu cầu giờ bắt đầu (startTime).");
+            }
+            
+            // Validate trùng Event, Fixed Task, Pinned TimeBlock
+            LocalDateTime taskStart = LocalDateTime.of(task.getTargetDate(), task.getStartTime());
+            LocalDateTime taskEnd = taskStart.plusMinutes(task.getRemainingDuration());
+            
+            validateFixedTimeOverlap(userId, taskStart, taskEnd, null);
+        } else {
+            // Flex Task bắt buộc có context
+            if (request.contextId() != null) {
+                com.vinhhuy.timemaster.entity.Context context = contextRepository.findById(request.contextId())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Không tìm thấy ngữ cảnh (Context) với ID: " + request.contextId()));
+                task.setContext(context);
+            } else {
+                throw new RuntimeException("Context là bắt buộc cho công việc linh hoạt (Flex Task).");
+            }
         }
 
         // 4. Lưu xuống Database và map sang Response
         Task savedTask = taskRepository.save(task);
+
         TaskResponse response = taskMapper.toResponse(savedTask);
 
-        // 5. Đồng bộ sang AI Vector Store (Async)
-        // Luôn gọi đồng bộ, VectorSyncServiceImpl sẽ tự dùng Secret nếu authHeader null
+        // 5. Đồng bộ sang AI Vector Store
         String authHeader = getAuthHeaderSafely();
         vectorSyncService.syncToAi(response, authHeader);
+
+        // 6. Xử lý Auto-schedule
+        if (savedTask.getIsFixed()) {
+            // Fixed Task ko thuoc context nao nhưng chiếm slot, nên chạy auto-schedule lại
+            schedulingService.triggerAutoSchedule(userId, null, savedTask.getTargetDate());
+        } else {
+            // Nếu là Flex Task -> Chạy auto-schedule cho context đó
+            schedulingService.triggerAutoSchedule(userId, savedTask.getContext().getId(), savedTask.getTargetDate());
+        }
 
         return response;
     }
@@ -140,6 +175,9 @@ public class TaskServiceImpl implements TaskService {
         String authHeader = getAuthHeaderSafely();
         vectorSyncService.syncToAi(response, authHeader);
 
+        // 8. Chạy lại auto-schedule cho context
+        schedulingService.triggerAutoSchedule(userId, updatedTask.getContext().getId(), updatedTask.getTargetDate());
+
         return response;
     }
 
@@ -165,8 +203,12 @@ public class TaskServiceImpl implements TaskService {
             vectorSyncService.deleteFromAi(task.getId(), authHeader);
 
             log.info(">>> [CORE SERVICE] Executing DB delete for Task ID: {}", taskId);
+            Long contextId = task.getContext() != null ? task.getContext().getId() : null;
             taskRepository.delete(task);
             log.info(">>> [CORE SERVICE] DELETION SUCCESSFUL in DB for Task ID: {}", taskId);
+
+            // Auto-schedule
+            schedulingService.triggerAutoSchedule(userId, contextId, task.getTargetDate());
         } catch (Exception e) {
             log.error(">>> [CORE SERVICE] DELETION FAILED for Task ID: {}. Reason: {}", taskId, e.getMessage(), e);
             throw e; // Trigger Rollback
@@ -185,20 +227,24 @@ public class TaskServiceImpl implements TaskService {
         }
 
         // Kiểm tra thời gian thực hiện
-        LocalDateTime startDateTime = LocalDateTime.of(request.targetDate(), request.startTime());
-        if (startDateTime.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Thời gian thực hiện không thể ở quá khứ.");
+        if (request.targetDate().isBefore(LocalDate.now())) {
+            throw new RuntimeException("Ngày thực hiện không thể ở quá khứ.");
         }
-
-        // Kiểm tra trùng lịch (Overlap)
-        validateTimeOverlap(userId, request.targetDate(), request.startTime(), request.estimatedDuration(), taskId,
-                request.force());
 
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
-        task.setStartTime(request.startTime());
         task.setEstimatedDuration(request.estimatedDuration() != null ? request.estimatedDuration() : 1.0);
         task.setDescription(request.description());
+
+        // Kiểm tra loại công việc (Flex vs Fixed)
+        Boolean reqIsFixed = request.isFixed();
+        if (reqIsFixed != null && !reqIsFixed.equals(task.getIsFixed())) {
+            throw new RuntimeException("Không thể chuyển đổi công việc từ linh hoạt (Flex) sang cố định (Fixed) hoặc ngược lại.");
+        }
+        
+        if (task.getIsFixed()) {
+            task.setStartTime(request.startTime());
+        }
 
         String mType = (request.matrixType() != null && !request.matrixType().isBlank())
                 ? request.matrixType().toUpperCase()
@@ -209,73 +255,97 @@ public class TaskServiceImpl implements TaskService {
             task.setMatrixType(Task.MatrixType.Q4);
         }
 
-        if (request.categoryId() != null) {
-            Category category = categoryRepository.findById(request.categoryId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + request.categoryId()));
-            task.setCategory(category);
+        // Xử lý Context
+        if (task.getIsFixed()) {
+            task.setContext(null);
+            if (task.getStartTime() == null) {
+                throw new RuntimeException("Công việc cố định yêu cầu giờ bắt đầu (startTime).");
+            }
+            
+            // Validate trùng lặp
+            LocalDateTime taskStart = LocalDateTime.of(task.getTargetDate(), task.getStartTime());
+            int remainingDuration = task.getEstimatedDuration() != null ? (int) (task.getEstimatedDuration() * 60) : 60;
+            LocalDateTime taskEnd = taskStart.plusMinutes(remainingDuration);
+            
+            validateFixedTimeOverlap(userId, taskStart, taskEnd, taskId);
         } else {
-            task.setCategory(null);
+            if (request.contextId() != null) {
+                com.vinhhuy.timemaster.entity.Context context = contextRepository.findById(request.contextId())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Không tìm thấy ngữ cảnh (Context) với ID: " + request.contextId()));
+                task.setContext(context);
+            } else {
+                throw new RuntimeException("Context là bắt buộc cho công việc linh hoạt (Flex Task).");
+            }
         }
 
+
         Task updatedTask = taskRepository.save(task);
+
         TaskResponse response = taskMapper.toResponse(updatedTask);
 
-        // Đồng bộ cập nhật sang AI Vector Store (Async)
+        // Đồng bộ cập nhật sang AI Vector Store
         String authHeader = getAuthHeaderSafely();
         vectorSyncService.syncToAi(response, authHeader);
+
+        // Xóa tất cả TimeBlocks cũ CỦA CÁC SLOT CHƯA KHÓA
+        timeBlockRepository.deleteUnlockedByTaskId(updatedTask.getId());
+
+        // 6. Auto-schedule
+        if (updatedTask.getIsFixed()) {
+            schedulingService.triggerAutoSchedule(userId, null, updatedTask.getTargetDate());
+        } else {
+            schedulingService.triggerAutoSchedule(userId, updatedTask.getContext().getId(), updatedTask.getTargetDate());
+        }
 
         return response;
     }
 
-    private void validateTimeOverlap(Long userId, LocalDate targetDate, LocalTime startTime, Double duration,
-            Long excludeTaskId, boolean force) {
-        if (force)
-            return;
 
-        List<Task> existingTasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
-        LocalTime newStart = startTime;
-        LocalTime newEnd = startTime.plusMinutes((long) (duration * 60));
 
-        List<String> conflicts = existingTasks.stream()
-                .filter(t -> !t.getId().equals(excludeTaskId))
-                .filter(t -> {
-                    LocalTime exStart = t.getStartTime();
-                    LocalTime exEnd = exStart.plusMinutes((long) (t.getEstimatedDuration() * 60));
-                    // Công thức giao thoa: (newStart < exEnd) && (exStart < newEnd)
-                    return newStart.isBefore(exEnd) && exStart.isBefore(newEnd);
-                })
-                .map(t -> {
-                    LocalTime exStart = t.getStartTime();
-                    long totalMinutes = (long) (t.getEstimatedDuration() * 60);
-
-                    String timeInfo;
-                    if (newStart.isAfter(exStart) || newStart.equals(exStart)) {
-                        // Tính thời gian còn lại của việc cũ tại thời điểm bắt đầu việc mới
-                        long elapsedMinutes = java.time.Duration.between(exStart, newStart).toMinutes();
-                        long remainingMinutes = totalMinutes - elapsedMinutes;
-                        timeInfo = String.format("đang làm, còn khoảng %d phút mới xong", remainingMinutes);
-                    } else {
-                        // Việc cũ sảy ra sau việc mới
-                        timeInfo = String.format("bắt đầu lúc %s", exStart);
-                    }
-                    return String.format("%s (%s)", t.getTitle(), timeInfo);
-                })
-                .collect(Collectors.toList());
-
-        if (!conflicts.isEmpty()) {
-            throw new ConflictException("CONFLICT: Trùng lịch với các công việc khác.", conflicts);
-        }
-    }
-
-    /**
-     * Lấy token an toàn từ Request.
-     * Tránh lỗi "No thread-bound request found" khi gọi từ MCP.
-     */
     private String getAuthHeaderSafely() {
         try {
             return httpServletRequest.getHeader("Authorization");
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private void validateFixedTimeOverlap(Long userId, LocalDateTime start, LocalDateTime end, Long excludeTaskId) {
+        LocalDate date = start.toLocalDate();
+        LocalDateTime dayStart = date.atStartOfDay();
+        LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+
+        // 1. Kiểm tra với các Event — CHẶN LUÔN
+        List<Event> events = eventRepository.findByUserIdAndStartTimeBetween(userId, dayStart, dayEnd);
+        for (Event e : events) {
+            if (start.isBefore(e.getEndTime()) && end.isAfter(e.getStartTime())) {
+                throw new RuntimeException("Công việc cố định bị trùng lặp thời gian với sự kiện: " + e.getTitle());
+            }
+        }
+
+        // 2. Kiểm tra với Fixed Tasks khác — CHẶN LUÔN
+        List<Task> fixedTasks = taskRepository.findByUserIdAndTargetDateAndIsFixedTrue(userId, date);
+        for (Task ft : fixedTasks) {
+            if (excludeTaskId != null && ft.getId().equals(excludeTaskId)) continue;
+            LocalDateTime ftStart = LocalDateTime.of(date, ft.getStartTime());
+            int duration = ft.getEstimatedDuration() != null ? (int) (ft.getEstimatedDuration() * 60) : 60;
+            LocalDateTime ftEnd = ftStart.plusMinutes(duration);
+            if (start.isBefore(ftEnd) && end.isAfter(ftStart)) {
+                throw new RuntimeException("Công việc cố định bị trùng lặp thời gian với công việc cố định khác: " + ft.getTitle());
+            }
+        }
+
+        // 3. Kiểm tra với Locked (Pinned) TimeBlocks — CHẶN LUÔN
+        List<TimeBlock> lockedBlocks = timeBlockRepository.findLockedBlocksByUserIdAndDateRange(userId, dayStart, dayEnd);
+        for (TimeBlock tb : lockedBlocks) {
+            if (excludeTaskId != null && tb.getTask().getId().equals(excludeTaskId)) continue;
+            if (start.isBefore(tb.getEndTime()) && end.isAfter(tb.getStartTime())) {
+                throw new RuntimeException("Công việc cố định bị trùng lặp thời gian với một khối thời gian đã ghim của công việc: " + tb.getTask().getTitle());
+            }
+        }
+
+        // 4. Kiểm tra với Unlocked TimeBlocks — CHO PHÉP, nhưng sẽ reschedule sau
+        // (Không throw exception, auto-schedule sẽ tự dịch chuyển các block này đi chỗ khác)
     }
 }

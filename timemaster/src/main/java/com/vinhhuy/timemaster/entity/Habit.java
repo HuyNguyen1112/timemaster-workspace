@@ -46,6 +46,13 @@ public class Habit {
     @Column(name = "is_system_habit")
     private Boolean isSystemHabit = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "routine")
+    private Routine routine = Routine.ALL_DAY;
+
+    @Column(name = "selected_days")
+    private String selectedDays; // E.g., "1,3,5" for Mon, Wed, Fri
+
     public Boolean isSystemHabit() {
         return isSystemHabit;
     }
@@ -63,5 +70,9 @@ public class Habit {
 
     public enum VerificationSource {
         NONE, GOOGLE_FIT_STEPS
+    }
+
+    public enum Routine {
+        MORNING, AFTERNOON, EVENING, ALL_DAY
     }
 }

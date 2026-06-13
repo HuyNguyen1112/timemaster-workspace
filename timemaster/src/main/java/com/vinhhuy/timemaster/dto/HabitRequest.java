@@ -15,4 +15,6 @@ public class HabitRequest {
     private String unit;
     private String frequency;
     private String colorCode;
+    private String routine;
+    private String selectedDays;
 }

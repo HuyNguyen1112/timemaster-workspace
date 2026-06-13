@@ -2,15 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, LayoutGrid, ChevronRight, Briefcase, Heart, User, BookOpen, Star, Coffee, Gamepad2, Calendar } from 'lucide-react-native';
+import { Plus, LayoutGrid, ChevronRight, Briefcase, Heart, User, BookOpen, Star, Coffee, Gamepad2, Calendar, AlertTriangle } from 'lucide-react-native';
 import { useCustomAlert } from '../../components/CustomAlertContext';
 import AddTaskModal from '../../components/AddTaskModal';
 import MatrixDetailModal from '../../components/MatrixDetailModal';
-import CategoryDetailModal from '../../components/CategoryDetailModal';
-import AddCategoryModal from '../../components/AddCategoryModal';
+import ContextDetailModal from '../../components/ContextDetailModal';
+import AddContextModal from '../../components/AddContextModal';
 import TaskDetailModal from '../../components/TaskDetailModal';
 import { taskService, Task } from '../../services/task.service';
-import { categoryService, Category } from '../../services/category.service';
+import { contextService, Context } from '../../services/context.service';
 import { notificationService } from '../../services/notification.service';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from 'expo-router';
@@ -22,22 +22,22 @@ export default function DashboardScreen() {
   const { showAlert } = useCustomAlert();
   const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddContextModal, setShowAddContextModal] = useState(false);
   const [selectedQuadrant, setSelectedQuadrant] = useState<any>(null);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [selectedContext, setSelectedContext] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [realCategories, setRealCategories] = useState<Category[]>([]);
+  const [realContexts, setRealContexts] = useState<Context[]>([]);
 
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
+  const [contextToEdit, setContextToEdit] = useState<any>(null);
   const [allTaskDates, setAllTaskDates] = useState<string[]>([]);
 
   const quadrants = [
-    { id: 'Q1', label: 'Urgent & Important', color: '#f97316' },
-    { id: 'Q2', label: 'Important, Not Urgent', color: '#3b82f6' },
-    { id: 'Q3', label: 'Urgent, Not Important', color: '#6b7280' },
+    { id: 'Q1', label: 'Urgent & Important', color: '#ef4444' },
+    { id: 'Q2', label: 'Important, Not Urgent', color: '#8b5cf6' },
+    { id: 'Q3', label: 'Urgent, Not Important', color: '#3b82f6' },
     { id: 'Q4', label: 'Casual / Relax', color: '#22c55e' },
   ];
 
@@ -51,12 +51,12 @@ export default function DashboardScreen() {
     Gamepad2: <Gamepad2 size={20} />,
   };
 
-  const fetchCategories = useCallback(async () => {
+  const fetchContexts = useCallback(async () => {
     try {
-      const data = await categoryService.getCategories();
-      setRealCategories(data);
+      const data = await contextService.getContexts();
+      setRealContexts(data);
     } catch (error) {
-      console.error('Failed to fetch categories', error);
+      console.error('Failed to fetch contexts', error);
     }
   }, []);
 
@@ -65,7 +65,6 @@ export default function DashboardScreen() {
       if (!user) return;
       const today = new Date().toISOString().split('T')[0];
       
-      // Fetch both today's tasks and ALL tasks (for calendar dots)
       const [todayData, allData] = await Promise.all([
         taskService.getTasksByDate(user.userId, today),
         taskService.getTasks(user.userId)
@@ -78,8 +77,8 @@ export default function DashboardScreen() {
         matrix: t.matrixType,
         time: t.startTime ? t.startTime.substring(0, 5) : 'Anytime',
         done: t.status === 'COMPLETED',
-        category: t.categoryName || 'General',
-        categoryId: t.categoryId,
+        contextName: t.contextName || 'General',
+        contextId: t.contextId,
         date: t.targetDate,
         duration: Math.round(t.estimatedDuration * 60)
       })).sort((a, b) => {
@@ -89,7 +88,6 @@ export default function DashboardScreen() {
       });
       setTasks(mappedTasks);
 
-      // Extract unique dates that have tasks
       const dates = Array.from(new Set(allData.map(t => t.targetDate)));
       setAllTaskDates(dates);
     } catch (error) {
@@ -99,19 +97,18 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchTasks(), fetchCategories()]);
+    await Promise.all([fetchTasks(), fetchContexts()]);
     setRefreshing(false);
-  }, [fetchTasks, fetchCategories]);
+  }, [fetchTasks, fetchContexts]);
 
   const searchParams = useLocalSearchParams();
-
   const lastResponse = Notifications.useLastNotificationResponse();
   
   useFocusEffect(
     useCallback(() => {
       fetchTasks();
-      fetchCategories();
-    }, [fetchTasks, fetchCategories])
+      fetchContexts();
+    }, [fetchTasks, fetchContexts])
   );
 
   const handleDeepLink = useCallback((tid: number) => {
@@ -123,33 +120,27 @@ export default function DashboardScreen() {
         matrix: t.matrixType || t.matrix,
         time: t.startTime ? t.startTime.substring(0, 5) : (t.time || 'Anytime'),
         done: (t.status === 'COMPLETED' || t.done),
-        category: t.categoryName || t.category || 'General',
-        categoryId: t.categoryId,
+        contextName: t.contextName || 'General',
+        contextId: t.contextId,
         date: t.targetDate || t.date,
         duration: t.estimatedDuration ? Math.round(t.estimatedDuration * 60) : (t.duration || 60)
       });
       setShowDetailModal(true);
     };
 
-    // Always fetch fresh for deep link to ensure we have the correct data regardless of current date
     taskService.getTasks(user?.userId || 0).then(allTasks => {
       const t = allTasks.find(item => item.id === tid);
       if (t) openTask(t);
     }).catch(err => console.error('Deep link fetch failed', err));
   }, [user?.userId]);
 
-  // Handle both URL params and native notification responses
   useEffect(() => {
     const tidFromUrl = searchParams.taskId ? Number(searchParams.taskId) : null;
     const tidFromNotify = lastResponse?.notification.request.content.data?.taskId;
-
     const finalTid = tidFromNotify || tidFromUrl;
 
     if (finalTid) {
-      console.log('[Dashboard] Deep link triggered for taskId:', finalTid);
       handleDeepLink(Number(finalTid));
-      
-      // Clear URL param if it exists
       if (searchParams.taskId) {
         router.setParams({ taskId: undefined });
       }
@@ -166,8 +157,8 @@ export default function DashboardScreen() {
       if (task && !task.done) {
         await notificationService.cancelTaskNotification(id);
       }
-    } catch (error) {
-      console.error('Toggle failed', error);
+    } catch (error: any) {
+      console.log('Toggle failed', error.message);
       fetchTasks();
     }
   };
@@ -177,18 +168,18 @@ export default function DashboardScreen() {
     setShowDetailModal(true);
   };
 
-  const handleAddTask = async (taskData: any, isForced: boolean = false) => {
+  const handleAddTask = async (taskData: any) => {
     try {
       if (!user) return;
       const payload = {
         title: taskData.title,
         description: taskData.description || '',
         targetDate: taskData.date,
-        startTime: taskData.time + ':00',
-        estimatedDuration: taskData.duration / 60,
+        startTime: taskData.time ? taskData.time + ':00' : undefined,
+        estimatedDuration: taskData.duration,
         matrixType: taskData.matrix,
-        categoryId: taskData.categoryId,
-        force: isForced
+        contextId: taskData.contextId,
+        isFixed: taskData.isFixed
       };
 
       let savedTask: Task;
@@ -206,69 +197,62 @@ export default function DashboardScreen() {
       fetchTasks();
     } catch (error: any) {
         if (error.response?.status === 409) {
-            const conflictInfo = error.response.data;
             showAlert({
                 title: 'Schedule Conflict',
-                message: `${conflictInfo.message}\n\nConflicts:\n- ${conflictInfo.conflicts.join('\n- ')}\n\nDo you want to save anyway?`,
+                message: error.response.data.message || 'There is a scheduling conflict.',
                 type: 'warning',
-                confirmText: 'Save Anyway',
-                cancelText: 'Cancel',
-                onConfirm: () => handleAddTask(taskData, true)
             });
         } else {
-            console.error('Operation failed', error);
+            console.log('Operation failed', error.message);
             showAlert({ title: 'Error', message: 'Operation failed. Please check inputs.', type: 'error' });
         }
     }
   };
 
-  const handleSaveCategory = async (data: any) => {
+  const handleSaveContext = async (data: any) => {
     try {
       const payload = {
         name: data.name,
         iconName: data.iconName,
-        colorCode: data.color
+        colorCode: data.color || data.colorCode,
+        schedules: data.schedules
       };
 
       if (data.id) {
-        await categoryService.updateCategory(data.id, payload);
-        Alert.alert('Success', 'Category updated successfully!');
+        await contextService.updateContext(data.id, payload);
+        showAlert({ title: 'Thành công', message: 'Cập nhật Context thành công!', type: 'success' });
       } else {
-        await categoryService.createCategory(payload);
-        Alert.alert('Success', 'Category created successfully!');
+        await contextService.createContext(payload);
+        showAlert({ title: 'Thành công', message: 'Tạo Context thành công!', type: 'success' });
       }
       
-      fetchCategories();
-      setCategoryToEdit(null);
-    } catch (error) {
-      console.error('Save category failed:', error);
-      Alert.alert('Error', 'Failed to save category.');
+      fetchContexts();
+      setContextToEdit(null);
+    } catch (error: any) {
+      console.log('Save context failed:', error.message);
+      const msg = error.response?.data?.message || 'Không thể lưu Context.';
+      showAlert({ title: 'Lỗi', message: msg, type: 'error' });
     }
   };
 
-  const handleDeleteCategory = async (id: number) => {
-    showAlert({
-      title: 'Xóa danh mục',
-      message: 'Bạn có chắc chắn muốn xóa danh mục này không? Các công việc liên quan sẽ không bị xóa nhưng sẽ mất danh mục.',
-      type: 'warning',
-      confirmText: 'Xóa ngay',
-      cancelText: 'Hủy',
-      onConfirm: async () => {
-        try {
-          await categoryService.deleteCategory(id);
-          fetchCategories();
-          fetchTasks(); 
-        } catch (error) {
-          console.error('Delete category failed:', error);
-          showAlert({ title: 'Lỗi', message: 'Không thể xóa danh mục.', type: 'error' });
-        }
-      }
-    });
+  const handleDeleteContext = async (id: number) => {
+    try {
+      await contextService.deleteContext(id);
+      fetchContexts();
+      fetchTasks(); 
+    } catch (error: any) {
+      console.log('Delete context failed:', error.message);
+      const msg = error.response?.data?.message || 'Không thể xóa ngữ cảnh.';
+      // Dùng setTimeout để tránh xung đột với hideAlert của dialog confirm cha
+      setTimeout(() => {
+        showAlert({ title: 'Lỗi', message: msg, type: 'error' });
+      }, 100);
+    }
   };
 
-  const getTodayTasksForCategory = (catId: number) => {
+  const getTodayTasksForContext = (ctxId: number) => {
     const todayStr = new Date().toISOString().split('T')[0];
-    return tasks.filter(t => t.categoryId === catId && t.date === todayStr);
+    return tasks.filter(t => t.contextId === ctxId && t.date === todayStr);
   };
 
   const handleDeleteTask = async (id: number) => {
@@ -336,21 +320,21 @@ export default function DashboardScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categories</Text>
+            <Text style={styles.sectionTitle}>Contexts</Text>
             <TouchableOpacity onPress={() => {
-                setCategoryToEdit(null);
-                setShowAddCategoryModal(true);
+                setContextToEdit(null);
+                setShowAddContextModal(true);
             }} style={styles.addBtnIcon}>
               <Plus size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.habitScroll}>
-            {realCategories.map(cat => (
-              <TouchableOpacity key={cat.id} style={styles.categoryItem} onPress={() => setSelectedCategory(cat)}>
-                <View style={[styles.categoryIconCircle, { borderColor: cat.color + '40' }]}>
-                  {iconMap[cat.iconName] ? React.cloneElement(iconMap[cat.iconName], { color: cat.color }) : <Star size={20} color={cat.color} />}
+            {realContexts.map(ctx => (
+              <TouchableOpacity key={ctx.id} style={styles.contextItem} onPress={() => setSelectedContext(ctx)}>
+                <View style={[styles.contextIconCircle, { borderColor: ctx.colorCode + '40' }]}>
+                  {ctx.iconName && iconMap[ctx.iconName] ? React.cloneElement(iconMap[ctx.iconName], { color: ctx.colorCode }) : <Star size={20} color={ctx.colorCode} />}
                 </View>
-                <Text style={styles.categoryLabel}>{cat.name}</Text>
+                <Text style={styles.contextLabel}>{ctx.name}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -374,8 +358,7 @@ export default function DashboardScreen() {
             <TouchableOpacity onPress={() => {
                 const now = new Date();
                 const today = now.toISOString().split('T')[0];
-                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                setSelectedTaskForDetail({ date: today, time: currentTime });
+                setSelectedTaskForDetail({ date: today, time: null, isFixed: false });
                 setShowAddModal(true);
             }} style={styles.addBtnSmall}>
               <Plus size={16} color="#ffffff" />
@@ -399,9 +382,10 @@ export default function DashboardScreen() {
 
                   <View style={styles.miniTaskList}>
                     {qTasks.slice(0, 4).map(t => (
-                      <View key={t.id} style={styles.miniTask}>
-                        <View style={[styles.miniDot, { backgroundColor: t.done ? '#4b5563' : q.color }]} />
-                        <Text style={[styles.miniText, t.done && styles.miniTextDone]} numberOfLines={1}>{t.title}</Text>
+                      <View key={t.id} style={[styles.miniTask, t.isOverloaded && { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                        <View style={[styles.miniDot, { backgroundColor: t.done ? '#4b5563' : (t.isOverloaded ? '#ef4444' : q.color) }]} />
+                        <Text style={[styles.miniText, t.done && styles.miniTextDone, t.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{t.title}</Text>
+                        {t.isOverloaded && <AlertTriangle size={12} color="#ef4444" style={{ marginLeft: 4 }} />}
                       </View>
                     ))}
                     {qTasks.length > 4 && <Text style={styles.moreText}>+{qTasks.length - 4} more</Text>}
@@ -419,17 +403,17 @@ export default function DashboardScreen() {
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddTask}
         task={selectedTaskForDetail}
-        categories={realCategories}
+        contexts={realContexts}
       />
 
-      <AddCategoryModal
-        visible={showAddCategoryModal}
+      <AddContextModal
+        visible={showAddContextModal}
         onClose={() => {
-            setShowAddCategoryModal(false);
-            setCategoryToEdit(null);
+            setShowAddContextModal(false);
+            setContextToEdit(null);
         }}
-        onSave={handleSaveCategory}
-        category={categoryToEdit}
+        onSave={handleSaveContext}
+        context={contextToEdit}
       />
 
       <MatrixDetailModal
@@ -445,30 +429,32 @@ export default function DashboardScreen() {
         visible={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         task={selectedTaskForDetail}
-        onEdit={(task) => {
+        onEdit={(task: any) => {
             setSelectedTaskForDetail(task);
             setShowAddModal(true);
         }}
         onDelete={handleDeleteTask}
-        onToggle={async (id) => {
+        onToggle={async (id: number) => {
             await toggleTask(id);
             setSelectedTaskForDetail((prev: any) => prev ? { ...prev, done: !prev.done } : null);
         }}
       />
 
-      <CategoryDetailModal
-        visible={!!selectedCategory}
-        category={selectedCategory}
-        items={selectedCategory ? getTodayTasksForCategory(selectedCategory.id) : []}
-        onDelete={handleDeleteCategory}
+      <ContextDetailModal
+        visible={!!selectedContext}
+        context={selectedContext}
+        items={selectedContext ? getTodayTasksForContext(selectedContext.id) : []}
+        onDelete={handleDeleteContext}
         onToggle={toggleTask}
         onDetail={handleTaskPress}
-        onEdit={(cat: any) => {
-            setSelectedCategory(null);
-            setCategoryToEdit(cat);
-            setShowAddCategoryModal(true);
+        onEdit={(ctx: any) => {
+            setSelectedContext(null);
+            setTimeout(() => {
+                setContextToEdit(ctx);
+                setShowAddContextModal(true);
+            }, 300);
         }}
-        onClose={() => setSelectedCategory(null)}
+        onClose={() => setSelectedContext(null)}
       />
     </SafeAreaView>
   );
@@ -487,13 +473,7 @@ const styles = StyleSheet.create({
   dateCircle: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17 },
   activeDateCircle: { backgroundColor: 'rgba(168,85,247,0.15)', borderWidth: 1, borderColor: 'rgba(168,85,247,0.4)' },
   dateText: { fontSize: 14, fontWeight: '600', color: '#d1d5db' },
-  dateDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#6b7280',
-    marginTop: 4,
-  },
+  dateDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#6b7280', marginTop: 4 },
   activeDateText: { color: '#c084fc' },
   section: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -515,7 +495,7 @@ const styles = StyleSheet.create({
   moreText: { color: '#4b5563', fontSize: 10, marginTop: 2 },
   emptyText: { color: '#333', fontSize: 11, fontStyle: 'italic' },
   habitScroll: { gap: 16, flexDirection: 'row' },
-  categoryItem: { alignItems: 'center', marginRight: 16 },
-  categoryIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  categoryLabel: { fontSize: 12, fontWeight: '500', color: '#9ca3af' }
+  contextItem: { alignItems: 'center', marginRight: 16 },
+  contextIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  contextLabel: { fontSize: 12, fontWeight: '500', color: '#9ca3af' }
 });

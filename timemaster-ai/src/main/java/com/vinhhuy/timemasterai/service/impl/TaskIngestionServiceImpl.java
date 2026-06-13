@@ -53,13 +53,12 @@ public class TaskIngestionServiceImpl implements TaskIngestionService {
 
     private void ingestTask(TaskResponse task, Long userId) {
         String content = String.format(
-                "Task ID %d: %s. Description: %s. Status: %s. Scheduled on: %s %s.",
+                "Task ID %d: %s. Description: %s. Status: %s. Scheduled on: %s.",
                 task.id(),
                 task.title(),
                 task.description() != null ? task.description() : "No description",
                 task.status(),
-                task.targetDate(),
-                task.startTime() != null ? task.startTime() : "00:00"
+                task.targetDate()
         );
 
         Metadata metadata = Metadata.from("userId", String.valueOf(userId));

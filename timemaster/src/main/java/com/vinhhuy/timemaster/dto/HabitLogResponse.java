@@ -15,4 +15,5 @@ public class HabitLogResponse {
     private LocalDate logDate;
     private Integer progressValue;
     private boolean completed;
+    private java.time.LocalDateTime updatedAt;
 }

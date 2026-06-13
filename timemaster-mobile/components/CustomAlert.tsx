@@ -12,6 +12,7 @@ interface CustomAlertProps {
     type?: 'info' | 'success' | 'error' | 'warning' | 'notification';
     onClose: () => void;
     onConfirm?: () => void;
+    onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
 }
@@ -23,6 +24,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     type = 'info',
     onClose,
     onConfirm,
+    onCancel,
     confirmText = 'OK',
     cancelText = 'Cancel'
 }) => {
@@ -102,18 +104,26 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
                     </View>
 
                     <View style={styles.buttonRow}>
-                        {onConfirm && (
-                            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                        {onConfirm ? (
+                            <>
+                                <TouchableOpacity style={styles.cancelButton} onPress={onCancel || onClose}>
+                                    <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[styles.confirmButton, { backgroundColor: getAccentColor() }]} 
+                                    onPress={onConfirm}
+                                >
+                                    <Text style={styles.confirmButtonText}>{confirmText}</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <TouchableOpacity 
+                                style={[styles.confirmButton, { backgroundColor: getAccentColor() }]} 
+                                onPress={onClose}
+                            >
+                                <Text style={styles.confirmButtonText}>{confirmText}</Text>
                             </TouchableOpacity>
                         )}
-                        
-                        <TouchableOpacity 
-                            style={[styles.confirmButton, { backgroundColor: getAccentColor() }]} 
-                            onPress={onConfirm || onClose}
-                        >
-                            <Text style={styles.confirmButtonText}>{confirmText}</Text>
-                        </TouchableOpacity>
                     </View>
                 </Animated.View>
             </View>

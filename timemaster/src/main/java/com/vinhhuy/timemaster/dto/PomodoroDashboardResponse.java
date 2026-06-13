@@ -24,7 +24,7 @@ public class PomodoroDashboardResponse {
     private String comparisonWithLastWeek;
 
     // 3. Deep Analytics
-    private Map<String, Long> focusTimeByCategory;
+    private Map<String, Long> focusTimeByContext;
 
     // 4. Habits
     private int currentStreak;

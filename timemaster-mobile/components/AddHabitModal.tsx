@@ -14,6 +14,25 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
     const [unit, setUnit] = useState('times');
     const [selectedIcon, setSelectedIcon] = useState('Flame');
     const [selectedColor, setSelectedColor] = useState('#fb923c');
+    const [routine, setRoutine] = useState('ALL_DAY');
+    const [selectedDays, setSelectedDays] = useState<number[]>([]);
+
+    const daysOfWeek = [
+        { id: 1, name: 'M' },
+        { id: 2, name: 'T' },
+        { id: 3, name: 'W' },
+        { id: 4, name: 'T' },
+        { id: 5, name: 'F' },
+        { id: 6, name: 'S' },
+        { id: 7, name: 'S' }
+    ];
+
+    const routines = [
+        { id: 'MORNING', label: 'Morning' },
+        { id: 'AFTERNOON', label: 'Afternoon' },
+        { id: 'EVENING', label: 'Evening' },
+        { id: 'ALL_DAY', label: 'All Day' }
+    ];
 
     const icons = [
         { name: 'Flame', component: <Flame size={24} /> },
@@ -35,9 +54,15 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
             dailyGoal: parseInt(goal) || 1,
             unit: unit || 'times',
             colorCode: selectedColor,
-            frequency: 'DAILY'
+            frequency: 'DAILY',
+            routine: routine,
+            selectedDays: selectedDays.length > 0 ? selectedDays.join(',') : null
         });
         setTitle('');
+        setGoal('1');
+        setUnit('times');
+        setSelectedDays([]);
+        setRoutine('ALL_DAY');
         onClose();
     };
 
@@ -98,6 +123,41 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                                     {React.cloneElement(icon.component as any, { color: selectedIcon === icon.name ? selectedColor : '#4b5563' })}
                                 </TouchableOpacity>
                             ))}
+                        </View>
+
+                        <Text style={styles.label}>Routine</Text>
+                        <View style={styles.routineGrid}>
+                            {routines.map(rt => (
+                                <TouchableOpacity 
+                                    key={rt.id}
+                                    style={[styles.routineBtn, routine === rt.id && { backgroundColor: selectedColor }]}
+                                    onPress={() => setRoutine(rt.id)}
+                                >
+                                    <Text style={[styles.routineText, routine === rt.id && { color: '#ffffff', fontWeight: 'bold' }]}>{rt.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <Text style={styles.label}>Specific Days (Leave empty for Every Day)</Text>
+                        <View style={styles.daysGrid}>
+                            {daysOfWeek.map(day => {
+                                const isSelected = selectedDays.includes(day.id);
+                                return (
+                                    <TouchableOpacity 
+                                        key={day.id}
+                                        style={[styles.dayBtn, isSelected && { backgroundColor: selectedColor }]}
+                                        onPress={() => {
+                                            if (isSelected) {
+                                                setSelectedDays(prev => prev.filter(d => d !== day.id));
+                                            } else {
+                                                setSelectedDays(prev => [...prev, day.id].sort());
+                                            }
+                                        }}
+                                    >
+                                        <Text style={[styles.dayText, isSelected && { color: '#ffffff', fontWeight: 'bold' }]}>{day.name}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
 
                         <Text style={styles.label}>Color</Text>
@@ -237,4 +297,40 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    routineGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    routineBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    routineText: {
+        color: '#9ca3af',
+        fontSize: 14,
+    },
+    daysGrid: {
+        flexDirection: 'row',
+        gap: 8,
+        justifyContent: 'space-between',
+    },
+    dayBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    dayText: {
+        color: '#9ca3af',
+        fontSize: 14,
+    }
 });

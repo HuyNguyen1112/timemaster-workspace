@@ -6,10 +6,12 @@ import AddHabitModal from '../../components/AddHabitModal';
 import { useAuth } from '../../context/AuthContext';
 import { habitService, Habit } from '../../services/habit.service';
 import { healthService } from '../../services/health.service';
+import { notificationService } from '../../services/notification.service';
 import { useFocusEffect, useRouter } from 'expo-router';
-
+import { useCustomAlert } from '../../components/CustomAlertContext';
 
 export default function HabitsScreen() {
+    const { showAlert } = useCustomAlert();
     const { user } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -36,7 +38,7 @@ export default function HabitsScreen() {
             setHabits(data);
         } catch (error) {
             console.error('Failed to load habits:', error);
-            Alert.alert('Error', 'Failed to load habits.');
+            showAlert({ title: 'Error', message: 'Failed to load habits.', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -97,11 +99,14 @@ export default function HabitsScreen() {
     const addHabit = async (newHabit: any) => {
         if (!user) return;
         try {
-            await habitService.createHabit(user.userId, newHabit);
+            const created = await habitService.createHabit(user.userId, newHabit);
             loadHabits();
+            await notificationService.scheduleHabitNotifications(created);
+            showAlert({ title: 'Success', message: 'Habit created successfully', type: 'success' });
+            setShowAddModal(false);
         } catch (error) {
             console.error('Failed to create habit:', error);
-            Alert.alert('Error', 'Failed to create habit.');
+            showAlert({ title: 'Error', message: 'Failed to create habit.', type: 'error' });
         }
     };
 
@@ -129,13 +134,6 @@ export default function HabitsScreen() {
                     </View>
                 </View>
 
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Active Habits</Text>
-                    <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addBtnIcon}>
-                        <Plus size={20} color="#ffffff" />
-                    </TouchableOpacity>
-                </View>
-
                 {loading ? (
                     <ActivityIndicator color="#8b5cf6" style={{ marginTop: 40 }} />
                 ) : habits.length === 0 ? (
@@ -143,47 +141,78 @@ export default function HabitsScreen() {
                         <Text style={styles.emptyText}>No active habits. Time to start one!</Text>
                     </View>
                 ) : (
-                    habits.map(habit => (
-                        <TouchableOpacity 
-                            key={habit.id} 
-                            style={styles.habitCard}
-                            onPress={() => router.push(`/habit/${habit.id}`)}
-                        >
-                            <View style={[styles.iconBox, { backgroundColor: (habit.colorCode || '#8b5cf6') + '15' }]}>
-                                {habit.icon && iconMap[habit.icon] 
-                                    ? React.cloneElement(iconMap[habit.icon] as React.ReactElement, { color: habit.colorCode || '#8b5cf6' } as any) 
-                                    : <Target color={habit.colorCode || '#8b5cf6'} />}
-                            </View>
-                            <View style={styles.habitInfo}>
-                                <View style={styles.titleRow}>
-                                    <Text style={styles.habitTitle}>{habit.name}</Text>
-                                    {habit.isSystemHabit && <Lock size={12} color="#9ca3af" style={{ marginLeft: 4 }} />}
-                                </View>
-                                <Text style={styles.habitSub}>
-                                    {habit.currentStreak} day streak • {
-                                        habit.verificationSource === 'GOOGLE_FIT_STEPS'
-                                            ? `📏 ${healthDistanceKm} km`
-                                            : `KPI: ${habit.dailyGoal} ${habit.unit}`
-                                    }
-                                </Text>
-                                <View style={styles.progressContainer}>
-                                    <View style={styles.progressBar}>
-                                        <View style={[
-                                            styles.progressFill, 
-                                            { 
-                                                width: `${Math.min(100, ((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%`,
-                                                backgroundColor: habit.colorCode || '#8b5cf6' 
-                                            }
-                                        ]} />
-                                    </View>
-                                    {habit.verificationSource !== 'NONE' && (
-                                        <Text style={styles.syncTag}>AUTO-SYNC</Text>
+                    [
+                        { id: 'MORNING', label: 'Morning Routine' },
+                        { id: 'AFTERNOON', label: 'Afternoon Routine' },
+                        { id: 'EVENING', label: 'Evening Routine' },
+                        { id: 'ALL_DAY', label: 'All Day' }
+                    ].map(group => {
+                        const groupHabits = habits.filter(h => 
+                            (group.id === 'ALL_DAY' && (!h.routine || h.routine === 'ALL_DAY')) ||
+                            h.routine === group.id
+                        );
+                        
+                        if (groupHabits.length === 0) return null;
+
+                        return (
+                            <View key={group.id} style={{ marginBottom: 24 }}>
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>{group.label}</Text>
+                                    {group.id === 'ALL_DAY' && (
+                                        <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addBtnIcon}>
+                                            <Plus size={20} color="#ffffff" />
+                                        </TouchableOpacity>
                                     )}
                                 </View>
+                                {groupHabits.map(habit => (
+                                    <TouchableOpacity 
+                                        key={habit.id} 
+                                        style={styles.habitCard}
+                                        onPress={() => router.push(`/habit/${habit.id}`)}
+                                    >
+                                        <View style={[styles.iconBox, { backgroundColor: (habit.colorCode || '#8b5cf6') + '15' }]}>
+                                            {habit.icon && iconMap[habit.icon] 
+                                                ? React.cloneElement(iconMap[habit.icon] as React.ReactElement, { color: habit.colorCode || '#8b5cf6' } as any) 
+                                                : <Target color={habit.colorCode || '#8b5cf6'} />}
+                                        </View>
+                                        <View style={styles.habitInfo}>
+                                            <View style={styles.titleRow}>
+                                                <Text style={styles.habitTitle}>{habit.name}</Text>
+                                                {habit.isSystemHabit && <Lock size={12} color="#9ca3af" style={{ marginLeft: 4 }} />}
+                                                {habit.selectedDays && (
+                                                    <View style={styles.daysBadge}>
+                                                        <Text style={styles.daysBadgeText}>Custom Days</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <Text style={styles.habitSub}>
+                                                {habit.currentStreak} day streak • {
+                                                    habit.verificationSource === 'GOOGLE_FIT_STEPS'
+                                                        ? `📏 ${healthDistanceKm} km`
+                                                        : `KPI: ${habit.dailyGoal} ${habit.unit}`
+                                                }
+                                            </Text>
+                                            <View style={styles.progressContainer}>
+                                                <View style={styles.progressBar}>
+                                                    <View style={[
+                                                        styles.progressFill, 
+                                                        { 
+                                                            width: `${Math.min(100, ((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%`,
+                                                            backgroundColor: habit.colorCode || '#8b5cf6' 
+                                                        }
+                                                    ]} />
+                                                </View>
+                                                {habit.verificationSource !== 'NONE' && (
+                                                    <Text style={styles.syncTag}>AUTO-SYNC</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                        <ChevronRight size={20} color="#4b5563" />
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                            <ChevronRight size={20} color="#4b5563" />
-                        </TouchableOpacity>
-                    ))
+                        );
+                    })
                 )}
             </ScrollView>
 
@@ -332,5 +361,18 @@ const styles = StyleSheet.create({
         color: '#4b5563',
         fontStyle: 'italic',
         textAlign: 'center',
+    },
+    daysBadge: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 8,
+    },
+    daysBadgeText: {
+        color: '#9ca3af',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
     }
 });

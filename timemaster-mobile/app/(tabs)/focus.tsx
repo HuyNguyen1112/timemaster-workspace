@@ -5,14 +5,18 @@ import { BrainCircuit, Play, Pause, ChevronRight, Square, Settings2, Plus, Minus
 import { useAuth } from '../../context/AuthContext';
 import { taskService } from '../../services/task.service';
 import { habitService } from '../../services/habit.service';
+import { pomodoroService } from '../../services/pomodoro.service';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCustomAlert } from '../../components/CustomAlertContext';
 
 export default function FocusScreen() {
+    const { showAlert } = useCustomAlert();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const { habitId, habitTitle } = useLocalSearchParams();
     const [isPlaying, setIsPlaying] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
+    const [timeLeft, setTimeLeft] = useState(25 * 60);          // dùng cho Pomodoro (đếm xuống)
+    const [elapsed, setElapsed] = useState(0);                   // dùng cho Custom Focus (đếm lên)
     const [isCustomMode, setIsCustomMode] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<any>({ id: 'none', title: 'No task selected', type: 'NONE' });
     const [showPicker, setShowPicker] = useState(false);
@@ -22,6 +26,7 @@ export default function FocusScreen() {
     const [inputValue, setInputValue] = useState('');
     const [initialTime, setInitialTime] = useState(25 * 60);
     const [lastSyncTime, setLastSyncTime] = useState(0); // To prevent double sync
+    const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
     const loadFocusData = useCallback(async () => {
         if (!user) return;
@@ -79,17 +84,35 @@ export default function FocusScreen() {
     );
 
     useEffect(() => {
+        if (isPlaying && !sessionStartTime) {
+            setSessionStartTime(new Date());
+        } else if (!isPlaying && sessionStartTime) {
+            // Reset start time if stopped/paused manually (for now, we treat pause as interruption if we were logging interruptions, but here we just reset it for simplicity or we can keep it until completed)
+        }
+    }, [isPlaying]);
+
+    useEffect(() => {
         let interval: any = null;
-        if (isPlaying && timeLeft > 0) {
-            interval = setInterval(() => {
-                setTimeLeft(prev => prev - 1);
-            }, 1000);
-        } else if (timeLeft === 0 && isPlaying) {
-            setIsPlaying(false);
-            handleSessionComplete();
+        if (isCustomMode) {
+            // Stopwatch: đếm lên
+            if (isPlaying) {
+                interval = setInterval(() => {
+                    setElapsed(prev => prev + 1);
+                }, 1000);
+            }
+        } else {
+            // Pomodoro: đếm xuống
+            if (isPlaying && timeLeft > 0) {
+                interval = setInterval(() => {
+                    setTimeLeft(prev => prev - 1);
+                }, 1000);
+            } else if (timeLeft === 0 && isPlaying) {
+                setIsPlaying(false);
+                handleSessionComplete();
+            }
         }
         return () => clearInterval(interval);
-    }, [isPlaying, timeLeft]);
+    }, [isPlaying, timeLeft, isCustomMode]);
 
     const handleSessionComplete = async () => {
         if (!user || selectedEntity.id === 'none') return;
@@ -99,19 +122,38 @@ export default function FocusScreen() {
         if (now - lastSyncTime < 2000) return;
         setLastSyncTime(now);
 
-        const sessionMinutes = Math.floor(initialTime / 60);
+        // Custom mode dùng elapsed (đồng hồ bấm giờ), Pomodoro dùng initialTime
+        const sessionMinutes = isCustomMode
+            ? Math.max(1, Math.floor(elapsed / 60))
+            : Math.floor(initialTime / 60);
         
-        if (selectedEntity.type === 'HABIT') {
-            try {
-                await habitService.checkIn(user.userId, selectedEntity.realId, {
-                    logDate: new Date().toISOString().split('T')[0],
-                    progressValue: sessionMinutes,
-                    isIncrement: true
-                });
-                Alert.alert('Session Complete!', `Added ${sessionMinutes} mins to your habit: ${selectedEntity.title}`);
-            } catch (error) {
-                console.error('Failed to sync habit progress:', error);
-            }
+        try {
+            const startStr = sessionStartTime ? sessionStartTime.toISOString() : new Date(Date.now() - sessionMinutes * 60000).toISOString();
+            const endStr = new Date().toISOString();
+            
+            await pomodoroService.saveSession({
+                taskId: selectedEntity.type === 'TASK' ? selectedEntity.realId : undefined,
+                habitId: selectedEntity.type === 'HABIT' ? selectedEntity.realId : undefined,
+                startTime: startStr,
+                endTime: endStr,
+                durationMinutes: sessionMinutes,
+                status: 'COMPLETED'
+            });
+            
+            showAlert({
+                title: 'Session Complete!', 
+                message: `Added ${sessionMinutes} mins to your ${selectedEntity.type.toLowerCase()}: ${selectedEntity.title}`,
+                type: 'success'
+            });
+            setSessionStartTime(null);
+            loadFocusData(); // Reload to reflect any status changes
+        } catch (error) {
+            console.error('Failed to sync session progress:', error);
+            showAlert({
+                title: 'Error', 
+                message: 'Failed to save focus session.',
+                type: 'error'
+            });
         }
     };
 
@@ -130,19 +172,65 @@ export default function FocusScreen() {
         }
     };
 
-    const resetTimer = () => {
+    const doReset = async (sessionMinutes: number, elapsedSecs: number) => {
         setIsPlaying(false);
-        setTimeLeft(isCustomMode ? initialTime : 25 * 60);
+        if (sessionMinutes >= 10 && sessionStartTime && user && selectedEntity.id !== 'none') {
+            try {
+                await pomodoroService.saveSession({
+                    taskId: selectedEntity.type === 'TASK' ? selectedEntity.realId : undefined,
+                    habitId: selectedEntity.type === 'HABIT' ? selectedEntity.realId : undefined,
+                    startTime: sessionStartTime.toISOString(),
+                    endTime: new Date().toISOString(),
+                    durationMinutes: sessionMinutes,
+                    status: isCustomMode ? 'COMPLETED' : 'INTERRUPTED'
+                });
+            } catch (e) {
+                console.error('Failed to save session:', e);
+            }
+        }
+        setTimeLeft(25 * 60);
+        setElapsed(0);
+        setSessionStartTime(null);
+    };
+
+    const resetTimer = async () => {
+        // Nếu không có session đang dở thì reset luôn
+        if (!sessionStartTime || selectedEntity.id === 'none') {
+            setIsPlaying(false);
+            setTimeLeft(25 * 60);
+            setElapsed(0);
+            setSessionStartTime(null);
+            return;
+        }
+
+        const elapsedSecs = isCustomMode ? elapsed : (initialTime - timeLeft);
+        const sessionMinutes = Math.floor(elapsedSecs / 60);
+
+        if (sessionMinutes < 10) {
+            // Chưa đủ 10 phút → hỏi người dùng
+            setIsPlaying(false); // tạm dừng trong lúc hỏi
+            showAlert({
+                title: 'Session chưa đủ 10 phút',
+                message: `Bạn mới tập trung được ${sessionMinutes > 0 ? sessionMinutes + ' phút' : 'chưa đến 1 phút'}. Session ngắn sẽ không được lưu lại.`,
+                type: 'warning',
+                confirmText: 'Hủy session',
+                cancelText: 'Tiếp tục tập trung',
+                onConfirm: () => doReset(sessionMinutes, elapsedSecs),
+                onCancel: () => setIsPlaying(true)
+            });
+        } else {
+            await doReset(sessionMinutes, elapsedSecs);
+        }
     };
 
     const toggleMode = () => {
         if (isPlaying) return;
         const newMode = !isCustomMode;
         setIsCustomMode(newMode);
-        if (!newMode) {
-            setTimeLeft(25 * 60);
-            setIsEditingTime(false);
-        }
+        setTimeLeft(25 * 60);
+        setElapsed(0);
+        setSessionStartTime(null);
+        setIsEditingTime(false);
     };
 
     const handleTimeSubmit = () => {
@@ -182,59 +270,37 @@ export default function FocusScreen() {
                     </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.targetCard} onPress={() => setShowPicker(true)}>
+                <TouchableOpacity 
+                    style={[styles.targetCard, sessionStartTime && styles.targetCardLocked]} 
+                    onPress={() => !sessionStartTime && setShowPicker(true)}
+                    activeOpacity={sessionStartTime ? 1 : 0.7}
+                >
                     <Text style={styles.subtitle}>Focusing on</Text>
                     <View style={styles.targetInfo}>
-                        <Target size={16} color="#a855f7" />
-                        <Text style={styles.title}>{selectedEntity.title}</Text>
-                        <ChevronRight size={16} color="#6b7280" />
+                        <Target size={16} color={sessionStartTime ? '#6b7280' : '#a855f7'} />
+                        <Text style={[styles.title, sessionStartTime && { color: '#9ca3af' }]}>{selectedEntity.title}</Text>
+                        {!sessionStartTime && <ChevronRight size={16} color="#6b7280" />}
+                        {!!sessionStartTime && <View style={styles.lockBadge}><Text style={styles.lockText}>🔒 Reset để đổi</Text></View>}
                     </View>
                 </TouchableOpacity>
             </View>
 
-            {/* Timer & Adjusters */}
+            {/* Timer */}
             <View style={styles.timerWrapper}>
-                {isCustomMode && !isPlaying && (
-                    <TouchableOpacity style={styles.adjustButton} onPress={() => adjustTime(-60)}>
-                        <Minus size={32} color="#ffffff" />
-                    </TouchableOpacity>
-                )}
-
                 <View style={styles.timerContainer}>
                     <TouchableOpacity 
                         style={[styles.timerRing, isPlaying && styles.timerRingActive]}
-                        activeOpacity={0.7} 
-                        onPress={startEditing} 
-                        disabled={isPlaying || isEditingTime}
+                        activeOpacity={1}
+                        disabled={true}
                     >
-                        {isEditingTime ? (
-                            <View style={styles.inputWrapper}>
-                                <TextInput
-                                    style={styles.timeInput}
-                                    value={inputValue}
-                                    onChangeText={setInputValue}
-                                    keyboardType="numeric"
-                                    autoFocus
-                                    onBlur={handleTimeSubmit}
-                                    onSubmitEditing={handleTimeSubmit}
-                                    maxLength={3}
-                                />
-                                <Text style={styles.minLabel}>min</Text>
-                            </View>
-                        ) : (
-                            <Text style={styles.timeText}>{formatTime(timeLeft)}</Text>
-                        )}
+                        <Text style={styles.timeText}>
+                            {isCustomMode ? formatTime(elapsed) : formatTime(timeLeft)}
+                        </Text>
                         <View style={styles.typeBadge}>
                             <Text style={styles.typeBadgeText}>{selectedEntity.type}</Text>
                         </View>
                     </TouchableOpacity>
                 </View>
-
-                {isCustomMode && !isPlaying && (
-                    <TouchableOpacity style={styles.adjustButton} onPress={() => adjustTime(60)}>
-                        <Plus size={32} color="#ffffff" />
-                    </TouchableOpacity>
-                )}
             </View>
 
             {/* Lower Controls */}
@@ -250,7 +316,12 @@ export default function FocusScreen() {
                     {isPlaying ? <Pause size={32} color="#ffffff" fill="#ffffff" /> : <Play size={36} color="#ffffff" fill="#ffffff" style={{ marginLeft: 4 }} />}
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.controlButton} onPress={() => setShowPicker(true)}>
+                {/* Zap: đổi Task/Habit — khoá khi đang có session */}
+                <TouchableOpacity 
+                    style={[styles.controlButton, !!sessionStartTime && { opacity: 0.3 }]} 
+                    onPress={() => !sessionStartTime && setShowPicker(true)}
+                    disabled={!!sessionStartTime}
+                >
                     <Zap size={20} color="#9ca3af" />
                 </TouchableOpacity>
             </View>
@@ -350,6 +421,24 @@ const styles = StyleSheet.create({
         padding: 16,
         width: '100%',
         alignItems: 'center',
+    },
+    targetCardLocked: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    lockBadge: {
+        backgroundColor: 'rgba(168,85,247,0.15)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(168,85,247,0.2)',
+    },
+    lockText: {
+        color: '#c084fc',
+        fontSize: 11,
+        fontWeight: '600',
     },
     targetInfo: {
         flexDirection: 'row',

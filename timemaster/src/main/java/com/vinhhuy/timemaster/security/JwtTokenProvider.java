@@ -50,6 +50,17 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
+    // Lấy userId từ Token
+    public Long getUserIdFromJWT(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.get("userId", Long.class);
+    }
+
     // Kiểm tra Token có hợp lệ không
     public boolean validateToken(String authToken) {
         try {

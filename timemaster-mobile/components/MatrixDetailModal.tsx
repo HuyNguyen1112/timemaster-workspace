@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
-import { X, CheckCircle2, Circle, Play } from 'lucide-react-native';
+import { X, CheckCircle2, Circle, Play, AlertTriangle } from 'lucide-react-native';
 
 export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, onToggle, onDetail }: any) {
     if (!quadrant) return null;
@@ -26,7 +26,7 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                             </View>
                         ) : (
                             tasks.map((task: any) => (
-                                <View key={task.id} style={styles.taskItemContainer}>
+                                <View key={task.id} style={[styles.taskItemContainer, task.isOverloaded && { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
                                     <TouchableOpacity 
                                         style={styles.toggleArea} 
                                         onPress={() => onToggle(task.id)}
@@ -38,8 +38,18 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                                         style={styles.taskInfoArea}
                                         onPress={() => onDetail(task)}
                                     >
-                                        <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>{task.title}</Text>
-                                        <Text style={styles.taskTime}>{task.time}</Text>
+                                        <Text style={[styles.taskTitle, task.done && styles.taskTitleDone, task.isOverloaded && { color: '#ef4444' }]}>
+                                            {task.title}
+                                        </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                            <Text style={styles.taskTime}>{task.time || (task.remainingDuration + ' phút')}</Text>
+                                            {task.isOverloaded && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+                                                    <AlertTriangle size={12} color="#ef4444" />
+                                                    <Text style={{ fontSize: 10, color: '#ef4444', marginLeft: 2 }}>Quá tải</Text>
+                                                </View>
+                                            )}
+                                        </View>
                                     </TouchableOpacity>
                                     
                                     <View style={styles.playIcon}>

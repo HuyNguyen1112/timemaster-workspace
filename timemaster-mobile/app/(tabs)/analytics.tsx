@@ -1,10 +1,42 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Flame, Zap } from 'lucide-react-native';
+import { pomodoroService, PomodoroDashboardResponse } from '../../services/pomodoro.service';
+import { useFocusEffect } from 'expo-router';
 
 export default function AnalyticsScreen() {
+    const [dashboard, setDashboard] = useState<PomodoroDashboardResponse | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const loadData = async () => {
+        try {
+            const data = await pomodoroService.getDashboard();
+            setDashboard(data);
+        } catch (error) {
+            console.error('Failed to load dashboard:', error);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [])
+    );
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadData();
+        setRefreshing(false);
+    };
+
+    const maxFocus = dashboard?.focusTimeLast7Days?.reduce((max, d) => Math.max(max, d.focusMinutes), 0) || 1;
+
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={styles.content}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8b5cf6" />}
+        >
             <View style={styles.header}>
                 <Text style={styles.title}>Your Progress</Text>
                 <Text style={styles.subtitle}>Track your productivity journey here.</Text>
@@ -15,7 +47,7 @@ export default function AnalyticsScreen() {
                     <Flame size={24} color="#f97316" style={styles.icon} />
                     <View>
                         <View style={styles.kpiValueRow}>
-                            <Text style={styles.kpiValue}>0</Text>
+                            <Text style={styles.kpiValue}>{dashboard?.currentStreak || 0}</Text>
                             <Text style={styles.kpiUnit}>Days</Text>
                         </View>
                         <Text style={styles.kpiLabel}>Current Streak</Text>
@@ -25,7 +57,7 @@ export default function AnalyticsScreen() {
                 <View style={[styles.kpiCard, styles.blueBorder]}>
                     <Zap size={24} color="#60a5fa" style={styles.icon} />
                     <View>
-                        <Text style={styles.kpiValue}>0</Text>
+                        <Text style={styles.kpiValue}>{dashboard?.totalSessionsCompleted || 0}</Text>
                         <Text style={styles.kpiLabel}>Total Sessions</Text>
                     </View>
                 </View>
@@ -35,21 +67,39 @@ export default function AnalyticsScreen() {
                 <View style={styles.chartHeader}>
                     <Text style={styles.chartTitle}>Focus Time (Last 7 Days)</Text>
                     <View style={styles.badge}>
-                        <Text style={styles.badgeText}>+0%</Text>
+                        <Text style={styles.badgeText}>{dashboard?.comparisonWithLastWeek || '+0%'}</Text>
                     </View>
                 </View>
 
                 <View style={styles.chartContainer}>
-                    {[0, 0, 0, 0, 0, 0, 0].map((h, i) => (
-                        <View key={i} style={styles.barCol}>
-                            <View style={styles.barTrack}>
-                                <View style={[styles.barFill, { height: `${h}%` }]} />
+                    {dashboard?.focusTimeLast7Days?.length ? (
+                        dashboard.focusTimeLast7Days.map((d, i) => {
+                            const heightPercentage = Math.max(5, (d.focusMinutes / maxFocus) * 100);
+                            const dateObj = new Date(d.date);
+                            const dayLetter = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dateObj.getDay()];
+                            return (
+                                <View key={i} style={styles.barCol}>
+                                    <View style={styles.barTrack}>
+                                        <View style={[styles.barFill, { height: `${heightPercentage}%`, backgroundColor: d.focusMinutes > 0 ? '#8b5cf6' : 'rgba(255,255,255,0.05)' }]} />
+                                    </View>
+                                    <Text style={styles.barLabel}>{dayLetter}</Text>
+                                </View>
+                            );
+                        })
+                    ) : (
+                        [0, 0, 0, 0, 0, 0, 0].map((h, i) => (
+                            <View key={i} style={styles.barCol}>
+                                <View style={styles.barTrack}>
+                                    <View style={[styles.barFill, { height: '5%' }]} />
+                                </View>
+                                <Text style={styles.barLabel}>-</Text>
                             </View>
-                            <Text style={styles.barLabel}>{'MTWTFSS'[i]}</Text>
-                        </View>
-                    ))}
+                        ))
+                    )}
                 </View>
-                <Text style={styles.emptyChartText}>No focus data available yet.</Text>
+                {(!dashboard?.focusTimeLast7Days || dashboard.totalSessionsCompleted === 0) && (
+                    <Text style={styles.emptyChartText}>No focus data available yet.</Text>
+                )}
             </View>
         </ScrollView>
     );

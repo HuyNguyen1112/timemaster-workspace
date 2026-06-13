@@ -34,6 +34,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Lấy email từ token
                 String email = tokenProvider.getEmailFromJWT(jwt);
 
+                // Lấy userId từ token và lưu vào request attribute
+                Long userId = tokenProvider.getUserIdFromJWT(jwt);
+                request.setAttribute("userId", userId);
+
                 // Load thông tin user
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 

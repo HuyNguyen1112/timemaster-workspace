@@ -20,6 +20,8 @@ public class HabitResponse {
     private String unit;
     private String frequency;
     private String colorCode;
+    private String routine;
+    private String selectedDays;
     private LocalDateTime createdAt;
 
     // Additional tracking stats for UI (Optional)

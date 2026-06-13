@@ -32,6 +32,33 @@ public class McpHabitConfiguration {
             LocalDate logDate) {
     }
 
+    public record McpCreateHabitParams(
+            Long userId,
+            String name,
+            String description,
+            String icon,
+            Integer dailyGoal,
+            String unit,
+            String frequency,
+            String colorCode,
+            String routine,
+            String selectedDays) {
+    }
+
+    public record McpUpdateHabitParams(
+            Long habitId,
+            Long userId,
+            String name,
+            String description,
+            String icon,
+            Integer dailyGoal,
+            String unit,
+            String frequency,
+            String colorCode,
+            String routine,
+            String selectedDays) {
+    }
+
     @Bean
     public ToolCallback mcpGetHabitsTool(HabitService habitService) {
         return FunctionToolCallback
@@ -72,6 +99,52 @@ public class McpHabitConfiguration {
                 })
                 .description("Điểm danh hoặc cập nhật tiến độ thói quen cho người dùng. BẮT BUỘC cung cấp habitId và userId. Các tham số khác: progressValue (giá trị thực hiện được), isIncrement (true nếu muốn cộng dồn thêm vào giá trị cũ), logDate (ngày điểm danh, mặc định là hôm nay).")
                 .inputType(McpCheckInParams.class)
+                .build();
+    }
+
+    @Bean
+    public ToolCallback mcpCreateHabitTool(HabitService habitService) {
+        return FunctionToolCallback
+                .builder("mcpCreateHabit", (McpCreateHabitParams params) -> {
+                    log.info(">>> MCP TOOL [mcpCreateHabit]: userId={}, name={}", params.userId(), params.name());
+                    HabitRequest request = new HabitRequest(
+                            params.name(),
+                            params.description(),
+                            params.icon() != null ? params.icon() : "Target",
+                            params.dailyGoal() != null ? params.dailyGoal() : 1,
+                            params.unit() != null ? params.unit() : "times",
+                            params.frequency() != null ? params.frequency() : "DAILY",
+                            params.colorCode() != null ? params.colorCode() : "#8b5cf6",
+                            params.routine() != null ? params.routine() : "ALL_DAY",
+                            params.selectedDays()
+                    );
+                    return habitService.createHabit(params.userId(), request);
+                })
+                .description("Tạo một Thói quen (Habit) mới. BẮT BUỘC cung cấp userId và name. Tham số quan trọng: routine (MORNING, AFTERNOON, EVENING, ALL_DAY), selectedDays (chuỗi các ngày, vd '1,3,5' với 1=Thứ2...7=CN).")
+                .inputType(McpCreateHabitParams.class)
+                .build();
+    }
+
+    @Bean
+    public ToolCallback mcpUpdateHabitTool(HabitService habitService) {
+        return FunctionToolCallback
+                .builder("mcpUpdateHabit", (McpUpdateHabitParams params) -> {
+                    log.info(">>> MCP TOOL [mcpUpdateHabit]: habitId={}, userId={}", params.habitId(), params.userId());
+                    HabitRequest request = new HabitRequest(
+                            params.name(),
+                            params.description(),
+                            params.icon(),
+                            params.dailyGoal(),
+                            params.unit(),
+                            params.frequency(),
+                            params.colorCode(),
+                            params.routine(),
+                            params.selectedDays()
+                    );
+                    return habitService.updateHabit(params.habitId(), params.userId(), request);
+                })
+                .description("Cập nhật lại thói quen đã tồn tại. BẮT BUỘC cung cấp habitId và userId (lấy từ USER_CONTEXT_JSON).")
+                .inputType(McpUpdateHabitParams.class)
                 .build();
     }
 }

@@ -10,6 +10,7 @@ interface AlertOptions {
     confirmText?: string;
     cancelText?: string;
     onConfirm?: () => void;
+    onCancel?: () => void;
 }
 
 interface AlertContextType {
@@ -43,6 +44,13 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         hideAlert();
     };
 
+    const handleCancel = () => {
+        if (options.onCancel) {
+            options.onCancel();
+        }
+        hideAlert();
+    };
+
     return (
         <AlertContext.Provider value={{ showAlert, hideAlert }}>
             {children}
@@ -55,6 +63,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 cancelText={options.cancelText}
                 onClose={hideAlert}
                 onConfirm={options.onConfirm ? handleConfirm : undefined}
+                onCancel={options.onCancel ? handleCancel : undefined}
             />
         </AlertContext.Provider>
     );

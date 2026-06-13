@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
-import { X, Calendar, Clock, Layout, Edit2, Trash2, CheckCircle2, Circle, AlignLeft, Tag } from 'lucide-react-native';
+import { X, Calendar, Clock, Layout, Edit2, Trash2, CheckCircle2, Circle, AlignLeft, Tag, AlertTriangle } from 'lucide-react-native';
 
 interface TaskDetailModalProps {
     visible: boolean;
@@ -11,35 +11,24 @@ interface TaskDetailModalProps {
     onToggle: (taskId: number) => void;
 }
 
+import { useCustomAlert } from './CustomAlertContext';
+
 export default function TaskDetailModal({ visible, onClose, task, onEdit, onDelete, onToggle }: TaskDetailModalProps) {
+    const { showAlert } = useCustomAlert();
     if (!task) return null;
 
     const handleDelete = () => {
-        Alert.alert(
-            "Delete Task",
-            "Are you sure you want to delete this task?",
-            Platform.OS === 'ios' ? [
-                { text: "Cancel", style: "cancel" },
-                { 
-                  text: "Delete", 
-                  style: "destructive", 
-                  onPress: () => {
-                    onDelete(task.id);
-                    onClose();
-                  } 
-                }
-            ] : [
-                { 
-                  text: "Delete", 
-                  style: "destructive", 
-                  onPress: () => {
-                    onDelete(task.id);
-                    onClose();
-                  } 
-                },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        showAlert({
+            title: 'Delete Task',
+            message: 'Are you sure you want to delete this task?',
+            type: 'warning',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                onDelete(task.id);
+                onClose();
+            }
+        });
     };
 
     const matrixColors: any = { Q1: '#f97316', Q2: '#3b82f6', Q3: '#6b7280', Q4: '#22c55e' };
@@ -66,6 +55,18 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                     <ScrollView showsVerticalScrollIndicator={false}>
                         <Text style={[styles.title, task.done && styles.titleDone]}>{task.title}</Text>
                         
+                        {task.isOverloaded && (
+                            <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ef4444', flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                                <AlertTriangle size={20} color="#ef4444" />
+                                <View style={{ marginLeft: 12, flex: 1 }}>
+                                    <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14 }}>Cảnh báo Quá tải</Text>
+                                    <Text style={{ color: '#fca5a5', fontSize: 12, marginTop: 4 }}>
+                                        Hệ thống không thể sắp xếp đủ thời lượng {task.remainingDuration} phút cho công việc này trước Deadline.
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        
                         {task.description && task.description.trim() !== '' && (
                             <View style={styles.descriptionSection}>
                                 <View style={styles.descriptionHeader}>
@@ -89,11 +90,11 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                                 <Layout size={16} color="#8b5cf6" />
                                 <Text style={styles.infoText}>{matrixLabels[task.matrix]}</Text>
                             </View>
-                            {task.category && (
+                            {task.context && (
                                 <View style={styles.infoRow}>
                                     <Tag size={16} color="#a855f7" />
                                     <View style={styles.catTag}>
-                                        <Text style={styles.catTagText}>{task.category}</Text>
+                                        <Text style={styles.catTagText}>{task.context}</Text>
                                     </View>
                                 </View>
                             )}

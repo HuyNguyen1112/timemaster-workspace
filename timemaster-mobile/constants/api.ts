@@ -4,7 +4,7 @@
  * Since we are using a physical Android device, we use the local machine IP.
  * Update this to 10.0.2.2 if switching to Android Emulator.
  */
-const LOCAL_IP = '192.168.1.53';
+const LOCAL_IP = '192.168.1.5';
 
 export const API_BASE_URL = {
   CORE: `http://${LOCAL_IP}:8080`,
@@ -19,15 +19,24 @@ export const ENDPOINTS = {
   TASKS: {
     BASE: '/api/tasks',
     BY_DATE: '/api/tasks/by-date',
+    COMPLETE: (id: number) => `/api/tasks/${id}/complete`,
   },
-  AI: {
-    CHAT: '/api/ai/chat',
+  EVENTS: {
+    BASE: '/api/events',
   },
-  CATEGORIES: {
-    BASE: '/api/categories',
+  SCHEDULE: {
+    BASE: '/api/schedule',
+    RECALCULATE: '/api/schedule/recalculate',
+    LOCK_BLOCK: (id: number) => `/api/schedule/time-blocks/${id}/lock`,
+  },
+  CONTEXTS: {
+    BASE: '/api/contexts',
   },
   HABITS: {
     BASE: '/api/habits',
     BY_DATE: '/api/habits/by-date',
+  },
+  AI: {
+    CHAT: '/api/ai/chat',
   },
 };

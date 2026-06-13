@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, Alert, Pla
 import { X, CheckCircle2, Circle, Target, Flame, Trash2, Briefcase, Heart, BookOpen, User, Star, Coffee, Gamepad2, Wrench } from 'lucide-react-native';
 import { useCustomAlert } from './CustomAlertContext';
 
-export default function CategoryDetailModal({ visible, onClose, category, items, onDelete, onToggle, onDetail, onEdit }: any) {
+export default function ContextDetailModal({ visible, onClose, context, items, onDelete, onToggle, onDetail, onEdit }: any) {
     const { showAlert } = useCustomAlert();
-    if (!category) return null;
+    if (!context) return null;
 
     const iconMap: any = {
         Briefcase: <Briefcase size={24} />,
@@ -18,19 +18,19 @@ export default function CategoryDetailModal({ visible, onClose, category, items,
     };
 
     const renderIcon = () => {
-        const icon = iconMap[category.iconName] || <Star size={24} />;
-        return React.cloneElement(icon as any, { color: category.color });
+        const icon = iconMap[context.iconName] || <Star size={24} />;
+        return React.cloneElement(icon as any, { color: context.color || context.colorCode });
     };
 
     const handleDelete = () => {
         showAlert({
             title: 'Xóa danh mục',
-            message: 'Bạn có chắc chắn muốn xóa danh mục này không? Các công việc liên quan sẽ không bị xóa nhưng sẽ mất danh mục.',
+            message: 'Bạn có chắc chắn muốn xóa danh mục này không?',
             type: 'warning',
             confirmText: 'Xóa ngay',
             cancelText: 'Hủy',
             onConfirm: () => {
-                onDelete(category.id);
+                onDelete(context.id);
                 onClose();
             }
         });
@@ -39,19 +39,19 @@ export default function CategoryDetailModal({ visible, onClose, category, items,
     return (
         <Modal visible={visible} transparent animationType="slide">
             <View style={styles.overlay}>
-                <View style={[styles.content, { borderColor: category.color + '40', borderWidth: 1.5, borderBottomWidth: 0 }]}>
+                <View style={[styles.content, { borderColor: (context.color || context.colorCode) + '40', borderWidth: 1.5, borderBottomWidth: 0 }]}>
                     <View style={styles.header}>
                         <View style={styles.titleInfo}>
-                            <View style={[styles.iconBox, { backgroundColor: category.color + '20' }]}>
+                            <View style={[styles.iconBox, { backgroundColor: (context.color || context.colorCode) + '20' }]}>
                                 {renderIcon()}
                             </View>
                             <View>
-                                <Text style={styles.title}>{category.name}</Text>
+                                <Text style={styles.title}>{context.name}</Text>
                                 <Text style={styles.sub}>{items.length} items today</Text>
                             </View>
                         </View>
                         <View style={styles.actions}>
-                            <TouchableOpacity onPress={() => onEdit(category)} style={styles.actionBtnSmall}>
+                            <TouchableOpacity onPress={() => onEdit(context)} style={styles.actionBtnSmall}>
                                 <Wrench size={18} color="#60a5fa" />
                             </TouchableOpacity>
                             <TouchableOpacity onPress={handleDelete} style={styles.actionBtnSmall}>
@@ -65,7 +65,7 @@ export default function CategoryDetailModal({ visible, onClose, category, items,
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
                         {items.length === 0 ? (
-                            <Text style={styles.empty}>No tasks today in this category.</Text>
+                            <Text style={styles.empty}>No tasks today in this Context.</Text>
                         ) : (
                             items.map((item: any) => (
                                 <View key={item.id} style={styles.taskItemContainer}>

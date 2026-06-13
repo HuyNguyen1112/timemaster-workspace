@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityInd
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, User, ChevronLeft } from 'lucide-react-native';
+import { useCustomAlert } from '../../components/CustomAlertContext';
 
 export default function SignUpScreen() {
+    const { showAlert } = useCustomAlert();
     const router = useRouter();
     const { signUp } = useAuth();
     const [fullName, setFullName] = useState('');
@@ -14,7 +16,7 @@ export default function SignUpScreen() {
 
     const handleSignUp = async () => {
         if (!fullName.trim() || !email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please fill all fields');
+            showAlert({ title: 'Error', message: 'Please fill all fields', type: 'error' });
             return;
         }
 
@@ -26,7 +28,7 @@ export default function SignUpScreen() {
         } catch (error: any) {
             console.error('Registration Error:', error.response?.data || error.message);
             const errorMsg = error.response?.data?.message || 'Registration failed. Try again.';
-            Alert.alert('Registration Failed', errorMsg);
+            showAlert({ title: 'Registration Failed', message: errorMsg, type: 'error' });
         } finally {
             setLoading(false);
         }

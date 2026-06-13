@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  timemaster-core:
+    build:
+      context: ./timemaster
+    container_name: timemaster-core
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/timemaster
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET:-my-super-secret-jwt-key-timemaster-2024-with-long-string}
+
+  timemaster-ai:
+    build:
+      context: ./timemaster-ai
+    container_name: timemaster-ai
+    restart: on-failure
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/timemaster
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET:-my-super-secret-jwt-key-timemaster-2024-with-long-string}
+      - VECTOR_STORE_HOST=host.docker.internal
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-your_api_key_here}
+      - MCP_SERVER_URL=http://timemaster-core:8080/sse
+    depends_on:
+      - timemaster-core

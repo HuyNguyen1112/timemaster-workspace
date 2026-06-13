@@ -2,15 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions, Platform, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Zap, Target, Award, Calendar, Trash2, Edit3, CheckCircle2 } from 'lucide-react-native';
+import { ChevronLeft, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Zap, Target, Award, Calendar, Trash2, Edit3, CheckCircle2, Plus } from 'lucide-react-native';
 import { habitService, Habit } from '../../services/habit.service';
 import { healthService } from '../../services/health.service';
 import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useCustomAlert } from '../../components/CustomAlertContext';
+import { notificationService } from '../../services/notification.service';
 
 const { width } = Dimensions.get('window');
 
 export default function HabitDetailScreen() {
+    const { showAlert } = useCustomAlert();
     const { id } = useLocalSearchParams();
     const { user } = useAuth();
     const router = useRouter();
@@ -49,7 +52,7 @@ export default function HabitDetailScreen() {
             }
         } catch (error) {
             console.error('Failed to load habit details:', error);
-            Alert.alert('Error', 'Failed to load habit details.');
+            showAlert({ title: 'Error', message: 'Failed to load habit details.', type: 'error' });
             router.back();
         } finally {
             setLoading(false);
@@ -75,7 +78,7 @@ export default function HabitDetailScreen() {
             setProgressInput('');
         } catch (error) {
             console.error('Check-in failed:', error);
-            Alert.alert('Error', 'Failed to record progress.');
+            showAlert({ title: 'Error', message: 'Failed to record progress.', type: 'error' });
         } finally {
             setIsCheckingIn(false);
         }
@@ -88,26 +91,23 @@ export default function HabitDetailScreen() {
     };
 
     const handleDelete = () => {
-        Alert.alert(
-            'Delete Habit',
-            'Are you sure you want to delete this habit permanently?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        if (!user || !habit) return;
-                        try {
-                            await habitService.deleteHabit(user.userId, habit.id);
-                            router.back();
-                        } catch (error) {
-                            Alert.alert('Error', 'Failed to delete habit.');
-                        }
-                    }
+        showAlert({
+            title: 'Delete Habit',
+            message: 'Are you sure you want to delete this habit permanently?',
+            type: 'warning',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            onConfirm: async () => {
+                if (!user || !habit) return;
+                try {
+                    await habitService.deleteHabit(user.userId, habit.id);
+                    await notificationService.cancelHabitNotifications(habit.id);
+                    router.back();
+                } catch (error) {
+                    showAlert({ title: 'Error', message: 'Failed to delete habit.', type: 'error' });
                 }
-            ]
-        );
+            }
+        });
     };
 
     if (loading || !habit) {

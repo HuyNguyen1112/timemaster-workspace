@@ -18,6 +18,8 @@ export interface Habit {
   verificationSource?: string;
   isSystemHabit?: boolean;
   progressToday?: number;
+  routine?: string;
+  selectedDays?: string;
 }
 
 export interface HabitCheckInRequest {
