@@ -2,6 +2,7 @@ package com.vinhhuy.timemaster.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public record TaskResponse(
         Long id,
@@ -17,6 +18,6 @@ public record TaskResponse(
         LocalDateTime createdAt,
         Boolean isOverdue,
         Boolean isFixed,
-        java.time.LocalTime startTime,
+        LocalTime startTime,
         Boolean isOverloaded
 ) {}

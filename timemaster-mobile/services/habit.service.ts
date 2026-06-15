@@ -58,6 +58,13 @@ class HabitService {
     return response.data;
   }
 
+  async updateHabit(userId: number, habitId: number, habitData: any): Promise<Habit> {
+    const response = await coreApi.put(`${ENDPOINTS.HABITS.BASE}/${habitId}`, habitData, {
+      headers: { userId: userId.toString() }
+    });
+    return response.data;
+  }
+
   async deleteHabit(userId: number, habitId: number): Promise<void> {
     await coreApi.delete(`${ENDPOINTS.HABITS.BASE}/${habitId}`, {
       headers: { userId: userId.toString() }

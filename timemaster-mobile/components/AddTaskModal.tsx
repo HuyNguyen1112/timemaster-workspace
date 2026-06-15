@@ -67,8 +67,11 @@ export default function AddTaskModal({ visible, onClose, onAdd, onAddEvent, task
     }, [task, visible]);
 
     const handleAdd = () => {
-        if (!title.trim()) return;
-        
+        if (!title.trim()) {
+            showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập tên công việc.', type: 'warning' });
+            return;
+        }
+
         if (mode === 'event') {
             const startDateTime = new Date(date);
             startDateTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
@@ -95,7 +98,6 @@ export default function AddTaskModal({ visible, onClose, onAdd, onAddEvent, task
                     endTime: formatLocalISO(endDateTime),
                 });
             }
-            onClose();
             return;
         }
 
@@ -124,7 +126,6 @@ export default function AddTaskModal({ visible, onClose, onAdd, onAddEvent, task
             time: mode === 'fixed' ? time.toTimeString().split(' ')[0].substring(0, 5) : null,
             isFixed: mode === 'fixed'
         });
-        onClose();
     };
 
     return (
@@ -334,6 +335,9 @@ export default function AddTaskModal({ visible, onClose, onAdd, onAddEvent, task
                         )}
                         {showTimePicker && (
                             <DateTimePicker value={time} mode="time" is24Hour={true} display="default" onChange={(e, t) => { setShowTimePicker(false); if (t) setTime(t); }} />
+                        )}
+                        {showEndTimePicker && (
+                            <DateTimePicker value={endTime} mode="time" is24Hour={true} display="default" onChange={(e, t) => { setShowEndTimePicker(false); if (t) setEndTime(t); }} />
                         )}
 
                         <TouchableOpacity style={styles.submitBtn} onPress={handleAdd}>

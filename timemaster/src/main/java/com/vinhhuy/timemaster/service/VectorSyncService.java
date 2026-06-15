@@ -1,6 +1,7 @@
 package com.vinhhuy.timemaster.service;
 
 import com.vinhhuy.timemaster.dto.TaskResponse;
+import com.vinhhuy.timemaster.dto.HabitResponse;
 
 public interface VectorSyncService {
 
@@ -15,7 +16,7 @@ public interface VectorSyncService {
     /**
      * Synchronizes a single habit to the AI Vector Store.
      */
-    void syncHabitToAi(com.vinhhuy.timemaster.dto.HabitResponse habit, String authToken);
+    void syncHabitToAi(HabitResponse habit, String authToken);
 
     /**
      * Notifies the AI module to remove a habit from the Vector Store.

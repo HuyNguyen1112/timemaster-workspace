@@ -145,7 +145,7 @@ class NotificationService {
       let expoWeekdays: number[] = [];
       if (habit.selectedDays) {
         const days = habit.selectedDays.split(',').map(Number);
-        expoWeekdays = days.map(d => (d % 7) + 1);
+        expoWeekdays = days.map((d: number) => (d % 7) + 1);
       }
 
       for (const hour of hoursToSchedule) {
@@ -160,10 +160,10 @@ class NotificationService {
                 android: { channelId: 'tm-alarms' },
               } as any,
               trigger: {
+                type: 'weekly',
                 weekday: weekday,
                 hour: hour,
                 minute: 0,
-                repeats: true,
               } as any,
             });
           }
@@ -177,9 +177,9 @@ class NotificationService {
               android: { channelId: 'tm-alarms' },
             } as any,
             trigger: {
+              type: 'daily',
               hour: hour,
               minute: 0,
-              repeats: true,
             } as any,
           });
         }
@@ -199,6 +199,115 @@ class NotificationService {
       }
     } catch (error) {
       console.error('Error cancelling habit notifications:', error);
+    }
+  }
+
+  async scheduleEventNotification(event: any) {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      if (!event.id || !event.startTime) return;
+
+      await this.cancelEventNotification(event.id);
+
+      const triggerDate = new Date(event.startTime);
+      if (isNaN(triggerDate.getTime())) return;
+
+      const now = Date.now();
+      const diffMs = triggerDate.getTime() - now;
+      const secondsUntil = Math.floor(diffMs / 1000);
+
+      if (secondsUntil < -30) {
+        console.log(`[Notification] Event "${event.title}" is in the past. Skipping.`);
+        return;
+      }
+
+      const finalSeconds = secondsUntil <= 2 ? 2 : secondsUntil;
+
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `🎉 Sự kiện sắp diễn ra: ${event.title}`,
+          body: 'Đã đến giờ bắt đầu sự kiện của bạn!',
+          data: { eventId: event.id },
+          sound: 'default',
+          priority: Notifications.AndroidImportance.MAX as any,
+          android: { channelId: 'tm-alarms' },
+        } as any,
+        trigger: {
+          type: 'timeInterval',
+          seconds: finalSeconds,
+          repeats: false,
+          preciseAlarm: true,
+        } as any,
+      });
+
+      console.log(`[Notification] Scheduled #${id} for event ${event.id} in ${finalSeconds}s.`);
+    } catch (error: any) {
+      console.error('[Notification] Error scheduling event:', error);
+    }
+  }
+
+  async cancelEventNotification(eventId: number) {
+    try {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const notificationsToCancel = scheduled.filter(n => n.content.data?.eventId === eventId);
+      
+      for (const n of notificationsToCancel) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+        console.log(`Cancelled notification ${n.identifier} for event ${eventId}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling event notification:', error);
+    }
+  }
+
+  async syncTimeBlockNotifications(dateStr: string, blocks: any[]) {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const blockNotifications = scheduled.filter(n => n.content.data?.type === 'timeblock' && n.content.data?.date === dateStr);
+      
+      for (const n of blockNotifications) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      }
+
+      for (const block of blocks) {
+        if (!block.startTime) continue;
+        
+        const triggerDate = new Date(block.startTime);
+        if (isNaN(triggerDate.getTime())) continue;
+
+        const now = Date.now();
+        const diffMs = triggerDate.getTime() - now;
+        const secondsUntil = Math.floor(diffMs / 1000);
+
+        if (secondsUntil < -30) continue; 
+        
+        const finalSeconds = secondsUntil <= 2 ? 2 : secondsUntil;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `⏰ Đến giờ Block: ${block.taskTitle}`,
+            body: `Hãy bắt đầu tập trung cho công việc này nhé!`,
+            data: { type: 'timeblock', blockId: block.id, taskId: block.taskId, date: dateStr },
+            sound: 'default',
+            priority: Notifications.AndroidImportance.MAX as any,
+            android: { channelId: 'tm-alarms' },
+          } as any,
+          trigger: {
+            type: 'timeInterval',
+            seconds: finalSeconds,
+            repeats: false,
+            preciseAlarm: true,
+          } as any,
+        });
+      }
+      console.log(`[Notification] Synced TimeBlock alarms for ${dateStr}`);
+    } catch (error) {
+      console.error('Error syncing timeblocks:', error);
     }
   }
 

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -15,5 +16,5 @@ public class HabitLogResponse {
     private LocalDate logDate;
     private Integer progressValue;
     private boolean completed;
-    private java.time.LocalDateTime updatedAt;
+    private LocalDateTime updatedAt;
 }

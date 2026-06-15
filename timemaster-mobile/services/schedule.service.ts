@@ -9,7 +9,10 @@ export interface TimeBlock {
   contextName: string;
   startTime: string; // ISO String or "HH:mm:ss"
   endTime: string;
-  isLocked: boolean;
+  isLocked?: boolean;
+  estimatedDuration?: number;
+  remainingDuration?: number;
+  isOverloaded?: boolean;
 }
 
 class ScheduleService {

@@ -13,12 +13,14 @@ import com.vinhhuy.timemaster.repository.UserRepository;
 import com.vinhhuy.timemaster.repository.HabitRepository;
 import com.vinhhuy.timemaster.service.PomodoroService;
 import com.vinhhuy.timemaster.service.HabitService;
+import com.vinhhuy.timemaster.repository.TimeBlockRepository;
 import com.vinhhuy.timemaster.dto.HabitCheckInRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ public class PomodoroServiceImpl implements PomodoroService {
     private final PomodoroMapper pomodoroMapper;
     private final HabitRepository habitRepository;
     private final HabitService habitService;
+    private final TimeBlockRepository timeBlockRepository;
 
     @Override
     @Transactional
@@ -80,8 +83,8 @@ public class PomodoroServiceImpl implements PomodoroService {
 
         PomodoroSession savedSession = pomodoroRepository.save(session);
 
-        // AUTO-SYNC HOOK: Tự động check-in Habit nếu Pomodoro hoàn thành
-        if (request.habitId() != null && savedSession.getStatus() == PomodoroSession.SessionStatus.COMPLETED) {
+        // AUTO-SYNC HOOK: Tự động check-in Habit nếu Pomodoro kết thúc
+        if (request.habitId() != null) {
             HabitCheckInRequest checkInReq = new HabitCheckInRequest(
                     savedSession.getStartTime().toLocalDate(),
                     savedSession.getDurationMinutes(),
@@ -90,14 +93,15 @@ public class PomodoroServiceImpl implements PomodoroService {
             habitService.checkIn(request.habitId(), userId, checkInReq);
         }
 
-        // AUTO-SYNC HOOK: Tự động trừ thời gian cho Task nếu Pomodoro hoàn thành
-        if (request.taskId() != null && savedSession.getStatus() == PomodoroSession.SessionStatus.COMPLETED) {
+        // AUTO-SYNC HOOK: Tự động trừ thời gian cho Task nếu Pomodoro kết thúc
+        if (request.taskId() != null) {
             Task task = savedSession.getTask();
             if (task.getRemainingDuration() != null) {
                 int newDuration = task.getRemainingDuration() - savedSession.getDurationMinutes();
                 task.setRemainingDuration(Math.max(0, newDuration));
                 if (newDuration <= 0) {
                     task.setStatus(Task.TaskStatus.COMPLETED);
+                    timeBlockRepository.deleteFutureUnlockedByTaskId(task.getId(), LocalDateTime.now());
                 }
                 taskRepository.save(task);
             }
@@ -109,6 +113,9 @@ public class PomodoroServiceImpl implements PomodoroService {
     @Override
     @Transactional(readOnly = true)
     public List<PomodoroResponse> getSessionsByUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         return pomodoroRepository.findByUserId(userId)
                 .stream()
                 .map(pomodoroMapper::toResponse)
@@ -118,6 +125,9 @@ public class PomodoroServiceImpl implements PomodoroService {
     @Override
     @Transactional(readOnly = true)
     public PomodoroDashboardResponse getDashboardStats(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         List<PomodoroSession> sessions = pomodoroRepository.findByUserId(userId);
         LocalDate today = LocalDate.now();
 

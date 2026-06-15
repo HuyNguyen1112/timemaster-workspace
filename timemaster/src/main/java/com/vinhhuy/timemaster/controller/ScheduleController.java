@@ -11,9 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -32,24 +30,7 @@ public class ScheduleController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         Long userId = SecurityUtils.getCurrentUserId();
-        LocalDateTime dayStart = date.atStartOfDay();
-        LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
-
-        List<TimeBlock> blocks = timeBlockRepository.findByUserIdAndDateRange(userId, dayStart, dayEnd);
-
-        List<TimeBlockResponse> response = blocks.stream()
-                .map(tb -> new TimeBlockResponse(
-                        tb.getId(),
-                        tb.getTask().getId(),
-                        tb.getTask().getTitle(),
-                        tb.getTask().getMatrixType() != null ? tb.getTask().getMatrixType().name() : null,
-                        tb.getTask().getContext() != null ? tb.getTask().getContext().getName() : null,
-                        tb.getStartTime(),
-                        tb.getEndTime()
-                ))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(schedulingService.getScheduleForDate(userId, date));
     }
 
     /**
@@ -62,21 +43,7 @@ public class ScheduleController {
             @RequestParam(required = false) Long contextId) {
 
         Long userId = SecurityUtils.getCurrentUserId();
-        List<TimeBlock> blocks = schedulingService.recalculateSchedule(userId, date, contextId);
-
-        List<TimeBlockResponse> response = blocks.stream()
-                .map(tb -> new TimeBlockResponse(
-                        tb.getId(),
-                        tb.getTask().getId(),
-                        tb.getTask().getTitle(),
-                        tb.getTask().getMatrixType() != null ? tb.getTask().getMatrixType().name() : null,
-                        tb.getTask().getContext() != null ? tb.getTask().getContext().getName() : null,
-                        tb.getStartTime(),
-                        tb.getEndTime()
-                ))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(schedulingService.recalculateAndGetSchedule(userId, date, contextId));
     }
 
     /**
@@ -87,7 +54,7 @@ public class ScheduleController {
     public ResponseEntity<Void> lockTimeBlock(
             @PathVariable Long blockId,
             @RequestParam boolean locked) {
-        
+
         Long userId = SecurityUtils.getCurrentUserId();
         TimeBlock block = timeBlockRepository.findById(blockId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy TimeBlock"));
@@ -98,7 +65,7 @@ public class ScheduleController {
 
         block.setIsLocked(locked);
         timeBlockRepository.save(block);
-        
+
         return ResponseEntity.ok().build();
     }
 }

@@ -5,9 +5,11 @@ import { User, Settings, Bell, Shield, LogOut, ChevronRight, BarChart3, Award } 
 import { useAuth } from '../../context/AuthContext';
 import { notificationService } from '../../services/notification.service';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const { showAlert } = useCustomAlert();
 
@@ -57,7 +59,11 @@ export default function ProfileScreen() {
                     <Text style={styles.sectionTitle}>General</Text>
 
                     <MenuLink icon={<User size={20} color="#60a5fa" />} label="Personal Information" />
-                    <MenuLink icon={<BarChart3 size={20} color="#a855f7" />} label="Detailed Analytics" />
+                    <MenuLink 
+                        icon={<BarChart3 size={20} color="#a855f7" />} 
+                        label="Detailed Analytics" 
+                        onPress={() => router.push('/analytics')}
+                    />
                     <MenuLink icon={<Bell size={20} color="#fb923c" />} label="Notifications" />
                     <MenuLink icon={<Shield size={20} color="#22c55e" />} label="Privacy & Security" />
                     
@@ -88,9 +94,9 @@ export default function ProfileScreen() {
     );
 }
 
-function MenuLink({ icon, label }: any) {
+function MenuLink({ icon, label, onPress }: any) {
     return (
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={styles.menuLeft}>
                 <View style={styles.iconCircle}>{icon}</View>
                 <Text style={styles.menuLabel}>{label}</Text>

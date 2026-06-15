@@ -31,7 +31,7 @@ public class PomodoroSession {
 
     private LocalDateTime endTime;
 
-    private Integer durationMinutes; // VD: 25
+    private Integer durationMinutes;
 
     private Integer loggedSeconds;
 

@@ -13,7 +13,7 @@ export default function FocusScreen() {
     const { showAlert } = useCustomAlert();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
-    const { habitId, habitTitle } = useLocalSearchParams();
+    const { habitId, habitTitle, taskId, taskTitle } = useLocalSearchParams();
     const [isPlaying, setIsPlaying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(25 * 60);          // dùng cho Pomodoro (đếm xuống)
     const [elapsed, setElapsed] = useState(0);                   // dùng cho Custom Focus (đếm lên)
@@ -34,7 +34,7 @@ export default function FocusScreen() {
         try {
             const today = new Date().toISOString().split('T')[0];
             const [tasks, habits] = await Promise.all([
-                taskService.getTasksByDate(user.userId, today),
+                taskService.getTasks(user.userId),
                 habitService.getHabits(user.userId)
             ]);
 
@@ -49,7 +49,7 @@ export default function FocusScreen() {
                 }));
     
             const mappedHabits = habits
-                .filter(h => !h.completedToday)
+                .filter(h => !h.completedToday && h.unit?.toLowerCase() === 'minutes')
                 .map(h => ({
                     id: `habit-${h.id}`,
                     realId: h.id,
@@ -70,7 +70,7 @@ export default function FocusScreen() {
         useCallback(() => {
             loadFocusData();
             
-            // Handle automatic selection from Habit Detail
+            // Handle automatic selection from Habit Detail or Calendar TimeBlock
             if (habitId && habitTitle) {
                 setSelectedEntity({
                     id: `habit-${habitId}`,
@@ -79,8 +79,16 @@ export default function FocusScreen() {
                     type: 'HABIT',
                     color: '#22c55e'
                 });
+            } else if (taskId && taskTitle) {
+                setSelectedEntity({
+                    id: `task-${taskId}`,
+                    realId: Number(taskId),
+                    title: taskTitle as string,
+                    type: 'TASK',
+                    color: '#8b5cf6'
+                });
             }
-        }, [loadFocusData, habitId, habitTitle])
+        }, [loadFocusData, habitId, habitTitle, taskId, taskTitle])
     );
 
     useEffect(() => {
@@ -128,8 +136,12 @@ export default function FocusScreen() {
             : Math.floor(initialTime / 60);
         
         try {
-            const startStr = sessionStartTime ? sessionStartTime.toISOString() : new Date(Date.now() - sessionMinutes * 60000).toISOString();
-            const endStr = new Date().toISOString();
+            const formatLocalISO = (d: Date) => {
+                const pad = (num: number) => num.toString().padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            };
+            const startStr = sessionStartTime ? formatLocalISO(sessionStartTime) : formatLocalISO(new Date(Date.now() - sessionMinutes * 60000));
+            const endStr = formatLocalISO(new Date());
             
             await pomodoroService.saveSession({
                 taskId: selectedEntity.type === 'TASK' ? selectedEntity.realId : undefined,
@@ -174,13 +186,17 @@ export default function FocusScreen() {
 
     const doReset = async (sessionMinutes: number, elapsedSecs: number) => {
         setIsPlaying(false);
-        if (sessionMinutes >= 10 && sessionStartTime && user && selectedEntity.id !== 'none') {
+        if (sessionMinutes >= 1 && sessionStartTime && user && selectedEntity.id !== 'none') {
             try {
+                const formatLocalISO = (d: Date) => {
+                    const pad = (num: number) => num.toString().padStart(2, '0');
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                };
                 await pomodoroService.saveSession({
                     taskId: selectedEntity.type === 'TASK' ? selectedEntity.realId : undefined,
                     habitId: selectedEntity.type === 'HABIT' ? selectedEntity.realId : undefined,
-                    startTime: sessionStartTime.toISOString(),
-                    endTime: new Date().toISOString(),
+                    startTime: formatLocalISO(sessionStartTime),
+                    endTime: formatLocalISO(new Date()),
                     durationMinutes: sessionMinutes,
                     status: isCustomMode ? 'COMPLETED' : 'INTERRUPTED'
                 });
@@ -206,12 +222,12 @@ export default function FocusScreen() {
         const elapsedSecs = isCustomMode ? elapsed : (initialTime - timeLeft);
         const sessionMinutes = Math.floor(elapsedSecs / 60);
 
-        if (sessionMinutes < 10) {
-            // Chưa đủ 10 phút → hỏi người dùng
+        if (sessionMinutes < 1) {
+            // Chưa đủ 1 phút → hỏi người dùng
             setIsPlaying(false); // tạm dừng trong lúc hỏi
             showAlert({
-                title: 'Session chưa đủ 10 phút',
-                message: `Bạn mới tập trung được ${sessionMinutes > 0 ? sessionMinutes + ' phút' : 'chưa đến 1 phút'}. Session ngắn sẽ không được lưu lại.`,
+                title: 'Session quá ngắn',
+                message: `Bạn mới tập trung được chưa đến 1 phút. Session ngắn sẽ không được lưu lại.`,
                 type: 'warning',
                 confirmText: 'Hủy session',
                 cancelText: 'Tiếp tục tập trung',

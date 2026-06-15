@@ -13,5 +13,9 @@ public record TimeBlockResponse(
     String matrixType,
     String contextName,
     LocalDateTime startTime,
-    LocalDateTime endTime
+    LocalDateTime endTime,
+    Double estimatedDuration,
+    Integer remainingDuration,
+    Boolean isOverloaded,
+    Boolean isLocked
 ) {}

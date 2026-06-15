@@ -2,6 +2,7 @@ package com.vinhhuy.timemaster.controller;
 
 import com.vinhhuy.timemaster.dto.PomodoroRequest;
 import com.vinhhuy.timemaster.dto.PomodoroResponse;
+import com.vinhhuy.timemaster.dto.PomodoroDashboardResponse;
 import com.vinhhuy.timemaster.security.SecurityUtils;
 import com.vinhhuy.timemaster.service.PomodoroService;
 import jakarta.validation.Valid;
@@ -47,9 +48,9 @@ public class PomodoroController {
      * GET /api/pomodoros/dashboard
      */
     @GetMapping("/dashboard")
-    public ResponseEntity<com.vinhhuy.timemaster.dto.PomodoroDashboardResponse> getDashboardStats() {
+    public ResponseEntity<PomodoroDashboardResponse> getDashboardStats() {
         Long userId = SecurityUtils.getCurrentUserId();
-        com.vinhhuy.timemaster.dto.PomodoroDashboardResponse dashboard = pomodoroService.getDashboardStats(userId);
+        PomodoroDashboardResponse dashboard = pomodoroService.getDashboardStats(userId);
         return ResponseEntity.ok(dashboard);
     }
 }

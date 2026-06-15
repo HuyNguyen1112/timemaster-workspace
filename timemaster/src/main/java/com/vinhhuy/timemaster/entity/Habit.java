@@ -23,16 +23,13 @@ public class Habit {
 
     private String description;
 
-    // Biểu tượng hiển thị trên UI (ví dụ: "💧", "📚")
     private String icon;
 
     private String colorCode;
 
-    // Mục tiêu hàng ngày (VD: 2 lít nước, 15 phút). Mặc định là 1 (lần)
     @Column(name = "daily_goal")
     private Integer dailyGoal = 1;
 
-    // Đơn vị (VD: "lít", "phút", "lần")
     private String unit;
 
     @Enumerated(EnumType.STRING)
@@ -49,9 +46,6 @@ public class Habit {
     @Enumerated(EnumType.STRING)
     @Column(name = "routine")
     private Routine routine = Routine.ALL_DAY;
-
-    @Column(name = "selected_days")
-    private String selectedDays; // E.g., "1,3,5" for Mon, Wed, Fri
 
     public Boolean isSystemHabit() {
         return isSystemHabit;

@@ -29,12 +29,12 @@ public class GlobalExceptionHandler {
     // Bắt các lỗi Logic nghiệp vụ (Ví dụ: Không tìm thấy User, không tìm thấy Task...)
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeExceptions(RuntimeException ex) {
-        log.error("Runtime exception: ", ex);
+        log.warn("Business logic exception: {}", ex.getMessage());
         Map<String, Object> error = new HashMap<>();
         error.put("message", ex.getMessage());
         error.put("timestamp", LocalDateTime.now());
-        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(Exception.class)

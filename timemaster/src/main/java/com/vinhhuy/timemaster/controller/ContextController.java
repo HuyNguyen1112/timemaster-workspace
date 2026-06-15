@@ -22,7 +22,7 @@ public class ContextController {
     @GetMapping
     public ResponseEntity<List<ContextResponse>> getAllContexts() {
         Long userId = SecurityUtils.getCurrentUserId();
-        return ResponseEntity.ok(contextService.getAllContextsByUser(userId));
+        return ResponseEntity.ok(contextService.getAll(userId));
     }
 
     @PostMapping
@@ -48,18 +48,4 @@ public class ContextController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{contextId}/schedules")
-    public ResponseEntity<ContextResponse> addSchedule(
-            @PathVariable Long contextId,
-            @RequestBody ContextScheduleRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(contextService.addSchedule(contextId, request));
-    }
-
-    @DeleteMapping("/{contextId}/schedules/{scheduleId}")
-    public ResponseEntity<Void> removeSchedule(
-            @PathVariable Long contextId,
-            @PathVariable Long scheduleId) {
-        contextService.removeSchedule(contextId, scheduleId);
-        return ResponseEntity.noContent().build();
-    }
 }

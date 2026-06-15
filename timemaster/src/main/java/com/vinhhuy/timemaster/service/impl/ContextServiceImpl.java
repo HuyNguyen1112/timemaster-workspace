@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
+import com.vinhhuy.timemaster.mapper.ContextMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class ContextServiceImpl implements ContextService {
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final EventRepository eventRepository;
+    private final ContextMapper contextMapper;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -38,13 +41,14 @@ public class ContextServiceImpl implements ContextService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ContextResponse> getAllContextsByUser(Long userId) {
-        List<Context> contexts = contextRepository.findAll().stream()
-                .filter(c -> c.getUser().getId().equals(userId))
-                .collect(Collectors.toList());
+    public List<ContextResponse> getAll(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
+        List<Context> contexts = contextRepository.findByUserId(userId);
 
         return contexts.stream()
-                .map(this::toResponse)
+                .map(contextMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -54,17 +58,13 @@ public class ContextServiceImpl implements ContextService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
 
-        System.out.println("==== CREATE CONTEXT REQUEST ====");
-        System.out.println("Name: " + request.name());
-        System.out.println("Schedules: " + request.schedules());
-        System.out.println("================================");
-
         // Validate schedules before saving Context
         if (request.schedules() != null) {
             for (ContextScheduleRequest schReq : request.schedules()) {
                 LocalTime newStart = LocalTime.parse(schReq.startTime());
                 LocalTime newEnd = LocalTime.parse(schReq.endTime());
-                validateNoOverlap(userId, schReq.dayOfWeek(), newStart, newEnd, schReq.startTime(), schReq.endTime(), null);
+                validateNoOverlap(userId, schReq.dayOfWeek(), newStart, newEnd, schReq.startTime(), schReq.endTime(),
+                        null);
             }
         }
 
@@ -87,14 +87,15 @@ public class ContextServiceImpl implements ContextService {
             }
         }
 
-        schedulingService.triggerAutoSchedule(userId, saved.getId(), java.time.LocalDate.now());
-
-        return toResponse(saved);
+        return contextMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
     public ContextResponse updateContext(Long contextId, Long userId, ContextRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Context context = contextRepository.findById(contextId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Context với ID: " + contextId));
 
@@ -107,7 +108,8 @@ public class ContextServiceImpl implements ContextService {
             for (ContextScheduleRequest schReq : request.schedules()) {
                 LocalTime newStart = LocalTime.parse(schReq.startTime());
                 LocalTime newEnd = LocalTime.parse(schReq.endTime());
-                validateNoOverlap(userId, schReq.dayOfWeek(), newStart, newEnd, schReq.startTime(), schReq.endTime(), contextId);
+                validateNoOverlap(userId, schReq.dayOfWeek(), newStart, newEnd, schReq.startTime(), schReq.endTime(),
+                        contextId);
             }
         }
 
@@ -135,14 +137,15 @@ public class ContextServiceImpl implements ContextService {
             }
         }
 
-        schedulingService.triggerAutoSchedule(userId, contextId, java.time.LocalDate.now());
-
-        return toResponse(contextRepository.findById(contextId).orElseThrow());
+        return contextMapper.toResponse(contextRepository.findById(contextId).orElseThrow());
     }
 
     @Override
     @Transactional
     public void deleteContext(Long contextId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Context context = contextRepository.findById(contextId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Context với ID: " + contextId));
 
@@ -151,64 +154,22 @@ public class ContextServiceImpl implements ContextService {
         }
 
         if (taskRepository.countByContextId(contextId) > 0) {
-            throw new RuntimeException("Không thể xóa danh mục này vì đang có công việc được phân bổ vào đây. Bạn hãy đổi danh mục của các công việc đó sang danh mục khác trước khi xóa.");
+            throw new RuntimeException(
+                    "Không thể xóa danh mục này vì đang có công việc được phân bổ vào đây. Bạn hãy đổi danh mục của các công việc đó sang danh mục khác trước khi xóa.");
         }
 
         if (eventRepository.countByContextId(contextId) > 0) {
-            throw new RuntimeException("Không thể xóa danh mục này vì đang có sự kiện (event) gắn liền với nó. Bạn hãy xóa hoặc đổi danh mục của sự kiện đó trước.");
+            throw new RuntimeException(
+                    "Không thể xóa danh mục này vì đang có sự kiện (event) gắn liền với nó. Bạn hãy xóa hoặc đổi danh mục của sự kiện đó trước.");
         }
 
         contextRepository.delete(context);
     }
 
-    @Override
-    @Transactional
-    public ContextResponse addSchedule(Long contextId, ContextScheduleRequest request) {
-        Context context = contextRepository.findById(contextId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Context với ID: " + contextId));
-
-        LocalTime newStart = LocalTime.parse(request.startTime());
-        LocalTime newEnd = LocalTime.parse(request.endTime());
-        Long userId = context.getUser().getId();
-
-        // Xác định danh sách ngày cần tạo
-        List<Integer> days = new java.util.ArrayList<>();
-        if (request.startDay() != null && request.endDay() != null) {
-            // Batch: từ startDay đến endDay
-            for (int d = request.startDay(); d <= request.endDay(); d++) {
-                days.add(d);
-            }
-        } else if (request.dayOfWeek() != null) {
-            // Chọn 1 ngày
-            days.add(request.dayOfWeek());
-        } else {
-            throw new RuntimeException("Phải chọn dayOfWeek hoặc startDay + endDay.");
-        }
-
-        // Validate overlap + tạo schedule cho từng ngày
-        for (Integer day : days) {
-            validateNoOverlap(userId, day, newStart, newEnd, request.startTime(), request.endTime(), contextId);
-
-            ContextSchedule schedule = new ContextSchedule();
-            schedule.setContext(context);
-            schedule.setDayOfWeek(day);
-            schedule.setStartTime(newStart);
-            schedule.setEndTime(newEnd);
-            contextScheduleRepository.save(schedule);
-        }
-
-        // Reload để có danh sách schedules mới nhất
-        Context reloaded = contextRepository.findById(contextId).orElseThrow();
-        
-        // Kích hoạt auto-schedule do khung giờ thay đổi
-        schedulingService.triggerAutoSchedule(userId, contextId, java.time.LocalDate.now());
-        
-        return toResponse(reloaded);
-    }
 
     private void validateNoOverlap(Long userId, Integer dayOfWeek,
-                                   LocalTime newStart, LocalTime newEnd,
-                                   String startStr, String endStr, Long excludeContextId) {
+            LocalTime newStart, LocalTime newEnd,
+            String startStr, String endStr, Long excludeContextId) {
         List<ContextSchedule> existing = contextScheduleRepository.findByUserIdAndDayOfWeek(userId, dayOfWeek);
         for (ContextSchedule s : existing) {
             if (excludeContextId != null && s.getContext().getId().equals(excludeContextId)) {
@@ -218,43 +179,9 @@ public class ContextServiceImpl implements ContextService {
             if (overlap) {
                 String ctxName = s.getContext().getName();
                 throw new RuntimeException(
-                    String.format("Ngày %d: Khung giờ %s-%s bị trùng với Context \"%s\" (%s-%s).",
-                        dayOfWeek, startStr, endStr, ctxName, s.getStartTime(), s.getEndTime()));
+                        String.format("Ngày %d: Khung giờ %s-%s bị trùng với Context \"%s\" (%s-%s).",
+                                dayOfWeek, startStr, endStr, ctxName, s.getStartTime(), s.getEndTime()));
             }
         }
-    }
-
-    @Override
-    @Transactional
-    public void removeSchedule(Long contextId, Long scheduleId) {
-        Context context = contextRepository.findById(contextId).orElseThrow();
-        Long userId = context.getUser().getId();
-        contextScheduleRepository.deleteById(scheduleId);
-        
-        // Kích hoạt auto-schedule do khung giờ thay đổi
-        schedulingService.triggerAutoSchedule(userId, contextId, java.time.LocalDate.now());
-    }
-
-    private ContextResponse toResponse(Context context) {
-        List<ContextResponse.ScheduleItem> scheduleItems = Collections.emptyList();
-        if (context.getSchedules() != null) {
-            scheduleItems = context.getSchedules().stream()
-                    .map(s -> new ContextResponse.ScheduleItem(
-                            s.getId(),
-                            s.getDayOfWeek(),
-                            s.getStartTime().toString(),
-                            s.getEndTime().toString()
-                    ))
-                    .collect(Collectors.toList());
-        }
-
-        return new ContextResponse(
-                context.getId(),
-                context.getName(),
-                context.getColorCode(),
-                context.getIsActive(),
-                context.getUser().getId(),
-                scheduleItems
-        );
     }
 }

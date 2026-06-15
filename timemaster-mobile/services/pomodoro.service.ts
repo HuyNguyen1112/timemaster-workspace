@@ -28,12 +28,12 @@ export interface PomodoroDashboardResponse {
 
 class PomodoroService {
   async saveSession(payload: PomodoroRequest): Promise<any> {
-    const response = await coreApi.post('/pomodoros', payload);
+    const response = await coreApi.post('/api/pomodoros', payload);
     return response.data;
   }
 
   async getDashboard(): Promise<PomodoroDashboardResponse> {
-    const response = await coreApi.get('/pomodoros/dashboard');
+    const response = await coreApi.get('/api/pomodoros/dashboard');
     return response.data;
   }
 }

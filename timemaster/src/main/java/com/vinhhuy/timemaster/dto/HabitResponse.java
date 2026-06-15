@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,13 +22,12 @@ public class HabitResponse {
     private String frequency;
     private String colorCode;
     private String routine;
-    private String selectedDays;
     private LocalDateTime createdAt;
 
     // Additional tracking stats for UI (Optional)
     private Integer currentStreak;
     private Boolean completedToday;
-    private java.util.List<HabitLogResponse> recentLogs;
+    private List<HabitLogResponse> recentLogs;
     private String verificationSource;
     private Boolean isSystemHabit;
 

@@ -47,7 +47,7 @@ export default function ContextDetailModal({ visible, onClose, context, items, o
                             </View>
                             <View>
                                 <Text style={styles.title}>{context.name}</Text>
-                                <Text style={styles.sub}>{items.length} items today</Text>
+                                <Text style={styles.sub}>{items.length} items</Text>
                             </View>
                         </View>
                         <View style={styles.actions}>
@@ -65,17 +65,10 @@ export default function ContextDetailModal({ visible, onClose, context, items, o
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
                         {items.length === 0 ? (
-                            <Text style={styles.empty}>No tasks today in this Context.</Text>
+                            <Text style={styles.empty}>No tasks in this Context.</Text>
                         ) : (
                             items.map((item: any) => (
                                 <View key={item.id} style={styles.taskItemContainer}>
-                                    <TouchableOpacity 
-                                        style={styles.toggleArea} 
-                                        onPress={() => onToggle(item.id)}
-                                    >
-                                        {item.done ? <CheckCircle2 size={22} color="#22c55e" /> : <Circle size={22} color="#6b7280" />}
-                                    </TouchableOpacity>
-
                                     <TouchableOpacity 
                                         style={styles.taskInfoArea}
                                         onPress={() => onDetail(item)}
@@ -169,6 +162,7 @@ const styles = StyleSheet.create({
     taskInfoArea: {
         flex: 1,
         paddingVertical: 16,
+        paddingHorizontal: 20,
     },
     taskTitle: {
         color: '#f3f4f6',

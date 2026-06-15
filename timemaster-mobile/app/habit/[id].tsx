@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCustomAlert } from '../../components/CustomAlertContext';
 import { notificationService } from '../../services/notification.service';
+import EditHabitModal from '../../components/EditHabitModal';
 
 const { width } = Dimensions.get('window');
 
@@ -23,7 +24,20 @@ export default function HabitDetailScreen() {
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [showProgressModal, setShowProgressModal] = useState(false);
     const [progressInput, setProgressInput] = useState('');
+    const [showEditModal, setShowEditModal] = useState(false);
     const [distanceKm, setDistanceKm] = useState(0);
+
+    const handleEditHabit = async (updatedHabit: any) => {
+        if (!user || !habit) return;
+        try {
+            const data = await habitService.updateHabit(user.userId, habit.id, updatedHabit);
+            setHabit(data);
+            showAlert({ title: 'Thành công', message: 'Đã cập nhật thói quen.', type: 'success' });
+            setShowEditModal(false);
+        } catch (error) {
+            showAlert({ title: 'Lỗi', message: 'Không thể cập nhật thói quen.', type: 'error' });
+        }
+    };
 
     const iconMap: any = {
         Flame: <Flame size={32} />,
@@ -35,9 +49,9 @@ export default function HabitDetailScreen() {
         Music: <Music size={32} />,
     };
 
-    const loadHabit = useCallback(async () => {
+    const loadHabit = useCallback(async (showLoading: boolean = true) => {
         if (!user || !id) return;
-        setLoading(true);
+        if (showLoading) setLoading(true);
         try {
             const data = await habitService.getHabitById(user.userId, Number(id));
             setHabit(data);
@@ -55,7 +69,7 @@ export default function HabitDetailScreen() {
             showAlert({ title: 'Error', message: 'Failed to load habit details.', type: 'error' });
             router.back();
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, [user, id]);
 
@@ -73,7 +87,7 @@ export default function HabitDetailScreen() {
                 isIncrement: isIncrement,
                 completed: !isIncrement ? true : undefined
             });
-            loadHabit(); 
+            loadHabit(false); 
             setShowProgressModal(false);
             setProgressInput('');
         } catch (error) {
@@ -173,7 +187,7 @@ export default function HabitDetailScreen() {
                         <ChevronLeft color="#ffffff" size={28} />
                     </TouchableOpacity>
                     <View style={styles.headerActions}>
-                        <TouchableOpacity style={styles.actionBtn}>
+                        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowEditModal(true)}>
                             <Edit3 color="#ffffff" size={20} />
                         </TouchableOpacity>
                         {!habit.isSystemHabit && (
@@ -223,7 +237,7 @@ export default function HabitDetailScreen() {
                         <Zap size={20} color="#facc15" />
                         <Text style={styles.statTitle}>Daily Progress</Text>
                         <Text style={styles.statValue}>
-                            {habit.progressToday || 0} / {habit.dailyGoal} {habit.unit || 'times'}
+                            {habit.progressToday || 0} / {habit.dailyGoal} {habit.unit === 'minutes' ? 'phút' : 'lần'}
                         </Text>
                     </View>
                     <View style={styles.statBox}>
@@ -267,7 +281,7 @@ export default function HabitDetailScreen() {
                     <View style={styles.actionBar}>
                         {isTimeUnit(habit.unit) ? (
                             <TouchableOpacity 
-                                style={[styles.checkInBtn, { flex: 2, backgroundColor: themeColor }]}
+                                style={[styles.checkInBtn, { flex: 1, backgroundColor: themeColor }]}
                                 onPress={() => router.push({ pathname: '/focus', params: { habitId: habit.id, habitTitle: habit.name } })}
                             >
                                 <Zap color="#ffffff" size={24} />
@@ -275,32 +289,23 @@ export default function HabitDetailScreen() {
                             </TouchableOpacity>
                         ) : habit.dailyGoal > 1 ? (
                             <TouchableOpacity 
-                                style={[styles.checkInBtn, { flex: 2, backgroundColor: themeColor }]}
-                                onPress={() => setShowProgressModal(true)}
+                                style={[styles.checkInBtn, { flex: 1, backgroundColor: themeColor }]}
+                                onPress={() => handleCheckIn(1, true)}
                             >
                                 <Plus color="#ffffff" size={24} />
-                                <Text style={styles.checkInText}>Update Progress</Text>
+                                <Text style={styles.checkInText}>+1 {habit.unit || 'Lần'}</Text>
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity 
                                 style={[
                                     styles.checkInBtn, 
-                                    { flex: 2, backgroundColor: habit.completedToday ? '#22c55e' : themeColor },
+                                    { flex: 1, backgroundColor: habit.completedToday ? '#22c55e' : themeColor },
                                 ]}
                                 onPress={() => handleCheckIn()}
                                 disabled={isCheckingIn || habit.completedToday}
                             >
                                 {habit.completedToday ? <CheckCircle2 color="#ffffff" size={24} /> : <Target color="#ffffff" size={24} />}
                                 <Text style={styles.checkInText}>{habit.completedToday ? 'Done for Today' : 'Mark as Done'}</Text>
-                            </TouchableOpacity>
-                        )}
-                        
-                        {(isTimeUnit(habit.unit) || habit.dailyGoal > 1) && (
-                            <TouchableOpacity 
-                                style={styles.manualEntryBtn}
-                                onPress={() => setShowProgressModal(true)}
-                            >
-                                <Edit3 color="#ffffff" size={20} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -318,7 +323,7 @@ export default function HabitDetailScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.modalSubtitle}>How many {habit.unit || 'units'} did you achieve?</Text>
+                        <Text style={styles.modalSubtitle}>Bạn đã đạt được bao nhiêu {habit.unit === 'minutes' ? 'phút' : 'lần'}?</Text>
                         
                         <View style={styles.inputContainer}>
                             <TextInput
@@ -330,7 +335,7 @@ export default function HabitDetailScreen() {
                                 keyboardType="numeric"
                                 autoFocus
                             />
-                            <Text style={styles.unitText}>{habit.unit}</Text>
+                            <Text style={styles.unitText}>{habit.unit === 'minutes' ? 'phút' : 'lần'}</Text>
                         </View>
 
                         <View style={styles.quickAddRow}>
@@ -355,6 +360,15 @@ export default function HabitDetailScreen() {
                     </View>
                 </View>
             </Modal>
+
+            {showEditModal && (
+                <EditHabitModal
+                    visible={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    onSave={handleEditHabit}
+                    initialData={habit}
+                />
+            )}
         </View>
     );
 }

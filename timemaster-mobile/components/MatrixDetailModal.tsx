@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { X, CheckCircle2, Circle, Play, AlertTriangle } from 'lucide-react-native';
 
 export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, onToggle, onDetail }: any) {
+    const router = useRouter();
+
     if (!quadrant) return null;
 
     return (
@@ -26,14 +29,16 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                             </View>
                         ) : (
                             tasks.map((task: any) => (
-                                <View key={task.id} style={[styles.taskItemContainer, task.isOverloaded && { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
-                                    <TouchableOpacity 
-                                        style={styles.toggleArea} 
-                                        onPress={() => onToggle(task.id)}
-                                    >
-                                        {task.done ? <CheckCircle2 size={24} color="#22c55e" /> : <Circle size={24} color="#6b7280" />}
-                                    </TouchableOpacity>
-
+                                <View key={task.id} style={[
+                                    styles.taskItemContainer, 
+                                    task.isOverloaded 
+                                        ? { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.05)' }
+                                        : (!task.done ? {
+                                            borderColor: task.isFixed ? 'rgba(245, 158, 11, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+                                            borderWidth: 1,
+                                            backgroundColor: task.isFixed ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)'
+                                        } : {})
+                                ]}>
                                     <TouchableOpacity 
                                         style={styles.taskInfoArea}
                                         onPress={() => onDetail(task)}
@@ -52,9 +57,18 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                                         </View>
                                     </TouchableOpacity>
                                     
-                                    <View style={styles.playIcon}>
-                                        <Play size={18} color="#4b5563" />
-                                    </View>
+                                    <TouchableOpacity 
+                                        style={styles.playIcon}
+                                        onPress={() => {
+                                            onClose();
+                                            router.push({
+                                                pathname: '/(tabs)/focus',
+                                                params: { taskId: task.id, taskTitle: task.title }
+                                            });
+                                        }}
+                                    >
+                                        <Play size={18} color="#8b5cf6" fill="#8b5cf6" />
+                                    </TouchableOpacity>
                                 </View>
                             ))
                         )}
@@ -117,16 +131,14 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         overflow: 'hidden',
     },
-    toggleArea: {
-        padding: 16,
-        paddingRight: 8,
-    },
     taskInfoArea: {
         flex: 1,
         paddingVertical: 16,
+        paddingLeft: 20,
     },
     playIcon: {
-        padding: 16,
+        paddingLeft: 16,
+        paddingRight: 20,
     },
     taskInfo: {
         flex: 1,

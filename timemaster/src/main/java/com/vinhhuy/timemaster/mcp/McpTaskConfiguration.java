@@ -5,6 +5,9 @@ import com.vinhhuy.timemaster.service.TaskService;
 import com.vinhhuy.timemaster.service.SchedulingService;
 import com.vinhhuy.timemaster.service.EventService;
 import com.vinhhuy.timemaster.service.ContextService;
+import com.vinhhuy.timemaster.dto.ContextResponse;
+import com.vinhhuy.timemaster.dto.TimeBlockResponse;
+import com.vinhhuy.timemaster.repository.TimeBlockRepository;
 import com.vinhhuy.timemaster.dto.EventRequest;
 
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +15,11 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.stream.Collectors;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Configuration
@@ -33,7 +39,7 @@ public class McpTaskConfiguration {
                         Long userId,
                         String title,
                         LocalDate targetDate,
-                        java.time.LocalTime startTime,
+                        LocalTime startTime,
                         Double estimatedDuration,
                         Long guessedContextId,
                         String guessedMatrixType) {
@@ -42,8 +48,8 @@ public class McpTaskConfiguration {
         public record McpCreateEventParams(
                         Long userId,
                         String title,
-                        java.time.LocalDateTime startTime,
-                        java.time.LocalDateTime endTime,
+                        LocalDateTime startTime,
+                        LocalDateTime endTime,
                         Long guessedContextId) {
         }
 
@@ -54,8 +60,8 @@ public class McpTaskConfiguration {
                         Long eventId,
                         Long userId,
                         String title,
-                        java.time.LocalDateTime startTime,
-                        java.time.LocalDateTime endTime,
+                        LocalDateTime startTime,
+                        LocalDateTime endTime,
                         Long guessedContextId) {
         }
 
@@ -79,12 +85,12 @@ public class McpTaskConfiguration {
                         Long userId,
                         String title,
                         String description,
-                        java.time.LocalDate targetDate,
+                        LocalDate targetDate,
                         Double estimatedDuration,
                         String matrixType,
                         Long contextId,
                         Boolean isFixed,
-                        java.time.LocalTime startTime) {
+                        LocalTime startTime) {
         }
 
         @Bean
@@ -92,7 +98,7 @@ public class McpTaskConfiguration {
                 return FunctionToolCallback
                                 .builder("mcpGetContexts", (UserIdParam params) -> {
                                         log.info(">>> MCP TOOL [mcpGetContexts]: userId={}", params.userId());
-                                        return contextService.getAllContextsByUser(params.userId());
+                                        return contextService.getAll(params.userId());
                                 })
                                 .description("Lấy danh sách các Ngữ cảnh (Context) của người dùng. Dùng công cụ này TRƯỚC KHI tạo Task/Event để BIẾT CÁC ID NGỮ CẢNH (contextId), từ đó AI TỰ ĐOÁN contextId thay vì hỏi người dùng.")
                                 .inputType(UserIdParam.class)
@@ -287,24 +293,28 @@ public class McpTaskConfiguration {
         }
 
         @Bean
-        public ToolCallback mcpGetScheduleTool(com.vinhhuy.timemaster.repository.TimeBlockRepository timeBlockRepository) {
+        public ToolCallback mcpGetScheduleTool(TimeBlockRepository timeBlockRepository) {
                 return FunctionToolCallback
                                 .builder("mcpGetSchedule", (UserDateParams params) -> {
                                         log.info(">>> MCP TOOL [mcpGetSchedule]: userId={}, date={}", params.userId(), params.targetDate());
-                                        java.time.LocalDateTime dayStart = params.targetDate().atStartOfDay();
-                                        java.time.LocalDateTime dayEnd = params.targetDate().plusDays(1).atStartOfDay();
+                                        LocalDateTime dayStart = params.targetDate().atStartOfDay();
+                                        LocalDateTime dayEnd = params.targetDate().plusDays(1).atStartOfDay();
                                         var blocks = timeBlockRepository.findByUserIdAndDateRange(params.userId(), dayStart, dayEnd);
                                         return blocks.stream()
-                                                .map(tb -> new com.vinhhuy.timemaster.dto.TimeBlockResponse(
+                                                .map(tb -> new TimeBlockResponse(
                                                         tb.getId(),
                                                         tb.getTask().getId(),
                                                         tb.getTask().getTitle(),
                                                         tb.getTask().getMatrixType() != null ? tb.getTask().getMatrixType().name() : null,
                                                         tb.getTask().getContext() != null ? tb.getTask().getContext().getName() : null,
                                                         tb.getStartTime(),
-                                                        tb.getEndTime()
+                                                        tb.getEndTime(),
+                                                        tb.getTask().getEstimatedDuration(),
+                                                        tb.getTask().getRemainingDuration(),
+                                                        tb.getTask().getIsOverloaded(),
+                                                        tb.getIsLocked()
                                                 ))
-                                                .collect(java.util.stream.Collectors.toList());
+                                                .collect(Collectors.toList());
                                 })
                                 .description("Xem lịch trình (danh sách TimeBlock) của người dùng theo ngày. Dùng khi user hỏi 'hôm nay tôi có gì?', 'lịch ngày mai ra sao?'. BẮT BUỘC cung cấp userId và targetDate.")
                                 .inputType(UserDateParams.class)

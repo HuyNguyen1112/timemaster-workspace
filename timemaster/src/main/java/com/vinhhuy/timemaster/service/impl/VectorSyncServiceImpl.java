@@ -1,6 +1,7 @@
 package com.vinhhuy.timemaster.service.impl;
 
 import com.vinhhuy.timemaster.dto.TaskResponse;
+import com.vinhhuy.timemaster.dto.HabitResponse;
 import com.vinhhuy.timemaster.service.VectorSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,7 +77,7 @@ public class VectorSyncServiceImpl implements VectorSyncService {
 
     @Override
     @Async
-    public void syncHabitToAi(com.vinhhuy.timemaster.dto.HabitResponse habit, String authToken) {
+    public void syncHabitToAi(HabitResponse habit, String authToken) {
         log.info("Async sync for Habit ID: {} triggered.", habit.getId());
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -86,7 +87,7 @@ public class VectorSyncServiceImpl implements VectorSyncService {
                 headers.set("X-Internal-Secret", internalSecret);
             }
 
-            HttpEntity<com.vinhhuy.timemaster.dto.HabitResponse> entity = new HttpEntity<>(habit, headers);
+            HttpEntity<HabitResponse> entity = new HttpEntity<>(habit, headers);
             restTemplate.postForObject(HABIT_INGEST_URL, entity, String.class);
             log.info("Successfully pushed Habit data to AI module for Habit ID: {}", habit.getId());
         } catch (Exception e) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
-import { X, Calendar, Clock, Layout, Edit2, Trash2, CheckCircle2, Circle, AlignLeft, Tag, AlertTriangle } from 'lucide-react-native';
+import { X, Calendar, Clock, Layout, Edit2, Trash2, CheckCircle2, Circle, AlignLeft, Tag, AlertTriangle, Play, Wrench } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 interface TaskDetailModalProps {
     visible: boolean;
@@ -15,6 +16,7 @@ import { useCustomAlert } from './CustomAlertContext';
 
 export default function TaskDetailModal({ visible, onClose, task, onEdit, onDelete, onToggle }: TaskDetailModalProps) {
     const { showAlert } = useCustomAlert();
+    const router = useRouter();
     if (!task) return null;
 
     const handleDelete = () => {
@@ -39,17 +41,37 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
         Q4: 'Casual / Relax' 
     };
 
+    const totalEstimatedMins = (task.estimatedDuration || 1) * 60;
+    const remainingMins = task.remainingDuration !== undefined ? task.remainingDuration : totalEstimatedMins;
+    
+    const focusedMins = Math.max(0, totalEstimatedMins - remainingMins);
+    
+    const percent = Math.min(100, Math.round((focusedMins / totalEstimatedMins) * 100));
+
+    const formatMinToHours = (mins: number) => {
+        if (mins < 60) return `${mins}m`;
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    };
+
     return (
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.overlay}>
                 <View style={[styles.content, { borderLeftColor: matrixColors[task.matrix] || '#8b5cf6', borderLeftWidth: 8 }]}>
                     <View style={styles.header}>
-                        <TouchableOpacity style={styles.statusToggle} onPress={() => onToggle(task.id)}>
-                            {task.done ? <CheckCircle2 size={24} color="#22c55e" /> : <Circle size={24} color="#4b5563" />}
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <X size={20} color="#9ca3af" />
-                        </TouchableOpacity>
+                        <View style={{ flex: 1 }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                            <TouchableOpacity onPress={() => { onEdit(task); onClose(); }} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                                <Wrench size={18} color="#f59e0b" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleDelete} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                                <Trash2 size={18} color="#ef4444" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={onClose} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                                <X size={20} color="#9ca3af" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false}>
@@ -101,23 +123,53 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                         </View>
                     </ScrollView>
 
-                    <View style={styles.footer}>
-                        <TouchableOpacity 
-                            style={styles.actionBtn} 
-                            onPress={() => {
-                                onEdit(task);
-                                onClose();
-                            }}
-                        >
-                            <Edit2 size={18} color="#3b82f6" />
-                            <Text style={[styles.actionText, { color: '#3b82f6' }]}>Edit</Text>
-                        </TouchableOpacity>
+                    {/* Progress Section */}
+                    {!task.isFixed && (
+                        <View style={styles.progressContainer}>
+                            <View style={styles.progressHeader}>
+                                <Text style={styles.progressLabel}>Task Overall Progress</Text>
+                                <Text style={styles.progressPercent}>{percent}%</Text>
+                            </View>
+                            
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+                            </View>
 
-                        <TouchableOpacity style={styles.actionBtn} onPress={handleDelete}>
-                            <Trash2 size={18} color="#ef4444" />
-                            <Text style={[styles.actionText, { color: '#ef4444' }]}>Delete</Text>
-                        </TouchableOpacity>
-                    </View>
+                            <View style={styles.progressStats}>
+                                <Text style={styles.statText}>
+                                    Focused: <Text style={{ color: '#10b981', fontWeight: 'bold' }}>{formatMinToHours(focusedMins)}</Text>
+                                </Text>
+                                <Text style={styles.statText}>
+                                    Total Est: <Text style={{ color: '#ffffff' }}>{formatMinToHours(totalEstimatedMins)}</Text>
+                                </Text>
+                            </View>
+                            
+                            {remainingMins > 0 && (
+                                <Text style={styles.remainingText}>
+                                    {formatMinToHours(remainingMins)} left to complete this task
+                                </Text>
+                            )}
+                            {remainingMins <= 0 && (
+                                <Text style={[styles.remainingText, { color: '#10b981' }]}>
+                                    Task completed!
+                                </Text>
+                            )}
+                        </View>
+                    )}
+
+                    <TouchableOpacity 
+                        style={styles.startFocusBtn} 
+                        onPress={() => {
+                            onClose();
+                            router.push({
+                                pathname: '/(tabs)/focus',
+                                params: { taskId: task.id, taskTitle: task.title }
+                            });
+                        }}
+                    >
+                        <Play size={18} color="#8b5cf6" fill="#8b5cf6" />
+                        <Text style={styles.startFocusBtnText}>Bắt đầu Focus</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         </Modal>
@@ -220,25 +272,72 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
     },
-    footer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 10,
+    progressContainer: {
+        marginTop: 16,
+        backgroundColor: '#111827',
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#374151'
     },
-    actionBtn: {
-        flex: 1,
+    progressHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10
+    },
+    progressLabel: {
+        color: '#d1d5db',
+        fontSize: 14,
+        fontWeight: '600'
+    },
+    progressPercent: {
+        color: '#3b82f6',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    progressBarBg: {
+        height: 10,
+        backgroundColor: '#374151',
+        borderRadius: 5,
+        overflow: 'hidden',
+        marginBottom: 12
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#3b82f6',
+        borderRadius: 5
+    },
+    progressStats: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8
+    },
+    statText: {
+        color: '#9ca3af',
+        fontSize: 13
+    },
+    remainingText: {
+        textAlign: 'center',
+        color: '#f59e0b',
+        fontSize: 12,
+        marginTop: 4,
+        fontStyle: 'italic'
+    },
+    startFocusBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        padding: 14,
-        borderRadius: 16,
+        marginTop: 20,
+        paddingVertical: 12,
+        backgroundColor: '#8b5cf6' + '20',
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: '#8b5cf6' + '40'
     },
-    actionText: {
-        fontSize: 14,
-        fontWeight: 'bold',
+    startFocusBtnText: {
+        color: '#8b5cf6',
+        fontWeight: '600',
+        fontSize: 15
     }
 });

@@ -41,8 +41,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
 
 
-        // Lấy task chưa xong có deadline >= ngày chỉ định — dùng cho phân bổ đa ngày
-        @Query("SELECT t FROM Task t WHERE t.user.id = :userId AND t.status <> 'COMPLETED' AND t.targetDate >= :date")
+        // Lấy task chưa xong có deadline >= ngày chỉ định — dùng cho phân bổ đa ngày (chỉ lấy Flex Task)
+        @Query("SELECT t FROM Task t WHERE t.user.id = :userId AND t.status <> 'COMPLETED' AND t.targetDate >= :date AND (t.isFixed IS NULL OR t.isFixed = false)")
         List<Task> findFlexPendingTasksWithDeadlineOnOrAfter(@Param("userId") Long userId, @Param("date") LocalDate date);
 
         // Đếm số công việc đã hoàn thành trong ngày theo từng ô Ma trận (Q1, Q2...)

@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -47,7 +49,15 @@ public class HabitServiceImpl implements HabitService {
         habit.setDescription(request.getDescription());
         habit.setIcon(request.getIcon());
         habit.setDailyGoal(request.getDailyGoal() != null ? request.getDailyGoal() : 1);
-        habit.setUnit(request.getUnit());
+        if (request.getUnit() != null) {
+            String u = request.getUnit().toLowerCase();
+            if (!u.equals("times") && !u.equals("minutes") && !u.equals("steps")) {
+                throw new RuntimeException("Unit chỉ được phép là 'times' hoặc 'minutes'");
+            }
+            habit.setUnit(u);
+        } else {
+            habit.setUnit("times");
+        }
         habit.setColorCode(request.getColorCode());
 
         try {
@@ -67,10 +77,9 @@ public class HabitServiceImpl implements HabitService {
                 habit.setRoutine(Habit.Routine.ALL_DAY);
             }
         }
-        habit.setSelectedDays(request.getSelectedDays());
 
         Habit saved = habitRepository.save(habit);
-        HabitResponse response = populateStats(saved, false);
+        HabitResponse response = habitMapper.toResponseWithStats(saved, false);
 
         // Sync to AI
         vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
@@ -81,6 +90,9 @@ public class HabitServiceImpl implements HabitService {
     @Override
     @Transactional
     public List<HabitResponse> getHabitsByUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         List<Habit> habits = habitRepository.findByUserId(userId);
 
         // If no system habits found, initialize them
@@ -91,7 +103,7 @@ public class HabitServiceImpl implements HabitService {
         }
 
         return habits.stream()
-                .map(habit -> populateStats(habit, false))
+                .map(habit -> habitMapper.toResponseWithStats(habit, false))
                 .collect(Collectors.toList());
     }
 
@@ -116,17 +128,23 @@ public class HabitServiceImpl implements HabitService {
     @Override
     @Transactional(readOnly = true)
     public HabitResponse getHabitById(Long habitId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new RuntimeException("Habit not found"));
         if (!habit.getUser().getId().equals(userId)) {
             throw new RuntimeException("Unauthorized permission");
         }
-        return populateStats(habit, true);
+        return habitMapper.toResponseWithStats(habit, true);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<HabitDailyProgress> getHabitsByDate(Long userId, LocalDate date) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         List<Habit> habits = habitRepository.findByUserId(userId);
         return habits.stream().map(h -> {
             HabitLog log = habitLogRepository.findByHabitIdAndLogDate(h.getId(), date).orElse(null);
@@ -148,6 +166,9 @@ public class HabitServiceImpl implements HabitService {
     @Override
     @Transactional
     public HabitResponse updateHabit(Long habitId, Long userId, HabitRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new RuntimeException("Habit not found"));
         if (!habit.getUser().getId().equals(userId)) {
@@ -162,8 +183,13 @@ public class HabitServiceImpl implements HabitService {
             habit.setIcon(request.getIcon());
         if (request.getDailyGoal() != null)
             habit.setDailyGoal(request.getDailyGoal());
-        if (request.getUnit() != null)
-            habit.setUnit(request.getUnit());
+        if (request.getUnit() != null) {
+            String u = request.getUnit().toLowerCase();
+            if (!u.equals("times") && !u.equals("minutes") && !u.equals("steps")) {
+                throw new RuntimeException("Unit chỉ được phép là 'times' hoặc 'minutes'");
+            }
+            habit.setUnit(u);
+        }
         if (request.getColorCode() != null)
             habit.setColorCode(request.getColorCode());
         if (request.getRoutine() != null) {
@@ -171,12 +197,9 @@ public class HabitServiceImpl implements HabitService {
                 habit.setRoutine(Habit.Routine.valueOf(request.getRoutine().toUpperCase()));
             } catch (Exception e) {}
         }
-        if (request.getSelectedDays() != null) {
-            habit.setSelectedDays(request.getSelectedDays());
-        }
 
         Habit updated = habitRepository.save(habit);
-        HabitResponse response = populateStats(updated, false);
+        HabitResponse response = habitMapper.toResponseWithStats(updated, false);
 
         // Sync to AI
         vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
@@ -187,6 +210,9 @@ public class HabitServiceImpl implements HabitService {
     @Override
     @Transactional
     public void deleteHabit(Long habitId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new RuntimeException("Habit not found"));
         if (Boolean.TRUE.equals(habit.isSystemHabit())) {
@@ -208,6 +234,9 @@ public class HabitServiceImpl implements HabitService {
     @Override
     @Transactional
     public HabitResponse checkIn(Long habitId, Long userId, HabitCheckInRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new RuntimeException("Habit not found"));
         if (!habit.getUser().getId().equals(userId)) {
@@ -222,16 +251,7 @@ public class HabitServiceImpl implements HabitService {
         log.setHabit(habit);
         log.setLogDate(logDate);
 
-        // Cooldown check for "times" or "lần"
-        if (log.getId() != null && log.getUpdatedAt() != null) {
-            String u = habit.getUnit() != null ? habit.getUnit().toLowerCase() : "";
-            if (u.equals("lần") || u.equals("times") || u.equals("time")) {
-                long minutesSinceLastUpdate = java.time.Duration.between(log.getUpdatedAt(), java.time.LocalDateTime.now()).toMinutes();
-                if (minutesSinceLastUpdate < 5) {
-                    throw new RuntimeException("Vui lòng đợi 5 phút giữa các lần check-in để tránh spam.");
-                }
-            }
-        }
+        // Đã gỡ bỏ tính năng Cooldown 5 phút để cho phép ấn +1 liên tục
 
         int newProgressValue = request.getProgressValue() != null ? request.getProgressValue() : habit.getDailyGoal();
 
@@ -250,7 +270,7 @@ public class HabitServiceImpl implements HabitService {
 
         habitLogRepository.save(log);
 
-        HabitResponse response = populateStats(habit, false);
+        HabitResponse response = habitMapper.toResponseWithStats(habit, false);
 
         // Sync progress update to AI
         vectorSyncService.syncHabitToAi(response, getAuthHeaderSafely());
@@ -258,61 +278,7 @@ public class HabitServiceImpl implements HabitService {
         return response;
     }
 
-    private HabitResponse populateStats(Habit habit, boolean includeLogs) {
-        HabitResponse response = habitMapper.toResponse(habit);
-        List<HabitLog> logs = habitLogRepository.findByHabitId(habit.getId());
 
-        LocalDate today = LocalDate.now();
-
-        boolean completedToday = logs.stream()
-                .anyMatch(l -> l.getLogDate().equals(today) && Boolean.TRUE.equals(l.isCompleted()));
-        response.setCompletedToday(completedToday);
-
-        // Set progressToday from today's log if it exists
-        logs.stream()
-                .filter(l -> l.getLogDate().equals(today))
-                .findFirst()
-                .ifPresent(l -> response.setProgressToday(l.getProgressValue()));
-
-        int streak = 0;
-        LocalDate trackDate = today;
-
-        while (true) {
-            final LocalDate d = trackDate;
-            boolean hasLog = logs.stream()
-                    .anyMatch(l -> l.getLogDate().equals(d) && Boolean.TRUE.equals(l.isCompleted()));
-
-            if (hasLog) {
-                streak++;
-                trackDate = trackDate.minusDays(1);
-            } else if (d.equals(today)) {
-                // Not completed today yet, check yesterday
-                trackDate = trackDate.minusDays(1);
-            } else {
-                break;
-            }
-        }
-
-        response.setCurrentStreak(streak);
-
-        if (includeLogs) {
-            // Get last 30 days of logs for heatmap
-            LocalDate startDate = today.minusDays(29);
-            List<com.vinhhuy.timemaster.dto.HabitLogResponse> recentLogs = logs.stream()
-                    .filter(l -> !l.getLogDate().isBefore(startDate))
-                    .map(l -> com.vinhhuy.timemaster.dto.HabitLogResponse.builder()
-                            .id(l.getId())
-                            .logDate(l.getLogDate())
-                            .progressValue(l.getProgressValue())
-                            .completed(l.isCompleted())
-                            .updatedAt(l.getUpdatedAt())
-                            .build())
-                    .collect(Collectors.toList());
-            response.setRecentLogs(recentLogs);
-        }
-
-        return response;
-    }
 
     private String getAuthHeaderSafely() {
         try {

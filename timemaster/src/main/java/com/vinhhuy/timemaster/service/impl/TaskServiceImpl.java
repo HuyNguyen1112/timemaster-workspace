@@ -15,6 +15,7 @@ import com.vinhhuy.timemaster.service.TaskService;
 import com.vinhhuy.timemaster.service.VectorSyncService;
 import com.vinhhuy.timemaster.entity.Event;
 import com.vinhhuy.timemaster.entity.TimeBlock;
+import com.vinhhuy.timemaster.entity.Context;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -99,7 +100,7 @@ public class TaskServiceImpl implements TaskService {
         } else {
             // Flex Task bắt buộc có context
             if (request.contextId() != null) {
-                com.vinhhuy.timemaster.entity.Context context = contextRepository.findById(request.contextId())
+                Context context = contextRepository.findById(request.contextId())
                         .orElseThrow(() -> new RuntimeException(
                                 "Không tìm thấy ngữ cảnh (Context) với ID: " + request.contextId()));
                 task.setContext(context);
@@ -132,6 +133,9 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskResponse> getAllTasksByUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         List<Task> tasks = taskRepository.findByUserId(userId);
 
         // Dùng Stream API để map toàn bộ danh sách Entity sang DTO
@@ -143,6 +147,9 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByDate(Long userId, LocalDate targetDate) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         List<Task> tasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
 
         return tasks.stream()
@@ -153,37 +160,20 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse completeTask(Long taskId, Long userId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc với ID: " + taskId));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
 
-        // Kiểm tra bảo mật
-        if (!task.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Bạn không có quyền chỉnh sửa công việc này.");
-        }
-
-        // Đảo trạng thái (Toggle)
-        if (task.getStatus() == Task.TaskStatus.COMPLETED) {
-            task.setStatus(Task.TaskStatus.PENDING);
-        } else {
-            task.setStatus(Task.TaskStatus.COMPLETED);
-        }
-
-        Task updatedTask = taskRepository.save(task);
-        TaskResponse response = taskMapper.toResponse(updatedTask);
-
-        // Notify AI of status change
-        String authHeader = getAuthHeaderSafely();
-        vectorSyncService.syncToAi(response, authHeader);
-
-        // 8. Chạy lại auto-schedule cho context
-        schedulingService.triggerAutoSchedule(userId, updatedTask.getContext().getId(), updatedTask.getTargetDate());
-
-        return response;
+        // Thiết kế cứng rắn: KHÔNG cho phép bấm nút hoàn thành bằng tay.
+        // Bắt buộc phải chứng minh bằng thời gian thực tế qua Pomodoro.
+        throw new RuntimeException("Tính năng hoàn thành thủ công đã bị vô hiệu hóa. Bạn bắt buộc phải dùng đồng hồ Pomodoro để chứng minh thời gian hoàn thành công việc!");
     }
 
     @Override
     @Transactional
     public void deleteTask(Long taskId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         log.info(">>> [CORE SERVICE] Request to delete Task ID: {} from User ID: {}", taskId, userId);
 
         Task task = taskRepository.findById(taskId)
@@ -218,6 +208,9 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse updateTask(Long taskId, Long userId, TaskRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc với ID: " + taskId));
 
@@ -233,7 +226,16 @@ public class TaskServiceImpl implements TaskService {
 
         task.setTitle(request.title());
         task.setTargetDate(request.targetDate());
-        task.setEstimatedDuration(request.estimatedDuration() != null ? request.estimatedDuration() : 1.0);
+        
+        Double oldEst = task.getEstimatedDuration() != null ? task.getEstimatedDuration() : 1.0;
+        Double newEst = request.estimatedDuration() != null ? request.estimatedDuration() : 1.0;
+        if (!oldEst.equals(newEst)) {
+            task.setEstimatedDuration(newEst);
+            int deltaMinutes = (int) Math.round((newEst - oldEst) * 60);
+            int currentRemaining = task.getRemainingDuration() != null ? task.getRemainingDuration() : (int) Math.round(oldEst * 60);
+            task.setRemainingDuration(Math.max(0, currentRemaining + deltaMinutes));
+        }
+        
         task.setDescription(request.description());
 
         // Kiểm tra loại công việc (Flex vs Fixed)
@@ -270,7 +272,7 @@ public class TaskServiceImpl implements TaskService {
             validateFixedTimeOverlap(userId, taskStart, taskEnd, taskId);
         } else {
             if (request.contextId() != null) {
-                com.vinhhuy.timemaster.entity.Context context = contextRepository.findById(request.contextId())
+                Context context = contextRepository.findById(request.contextId())
                         .orElseThrow(() -> new RuntimeException(
                                 "Không tìm thấy ngữ cảnh (Context) với ID: " + request.contextId()));
                 task.setContext(context);

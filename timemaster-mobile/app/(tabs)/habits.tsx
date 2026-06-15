@@ -142,10 +142,10 @@ export default function HabitsScreen() {
                     </View>
                 ) : (
                     [
+                        { id: 'ALL_DAY', label: 'All Day' },
                         { id: 'MORNING', label: 'Morning Routine' },
                         { id: 'AFTERNOON', label: 'Afternoon Routine' },
-                        { id: 'EVENING', label: 'Evening Routine' },
-                        { id: 'ALL_DAY', label: 'All Day' }
+                        { id: 'EVENING', label: 'Evening Routine' }
                     ].map(group => {
                         const groupHabits = habits.filter(h => 
                             (group.id === 'ALL_DAY' && (!h.routine || h.routine === 'ALL_DAY')) ||
@@ -189,7 +189,7 @@ export default function HabitsScreen() {
                                                 {habit.currentStreak} day streak • {
                                                     habit.verificationSource === 'GOOGLE_FIT_STEPS'
                                                         ? `📏 ${healthDistanceKm} km`
-                                                        : `KPI: ${habit.dailyGoal} ${habit.unit}`
+                                                        : `KPI: ${habit.dailyGoal} ${habit.unit === 'minutes' ? 'phút' : 'lần'}`
                                                 }
                                             </Text>
                                             <View style={styles.progressContainer}>

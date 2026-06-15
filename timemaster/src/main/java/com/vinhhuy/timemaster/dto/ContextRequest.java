@@ -1,8 +1,10 @@
 package com.vinhhuy.timemaster.dto;
 
+import java.util.List;
+
 public record ContextRequest(
         String name,
         String colorCode,
         Boolean isActive,
-        java.util.List<ContextScheduleRequest> schedules
+        List<ContextScheduleRequest> schedules
 ) {}

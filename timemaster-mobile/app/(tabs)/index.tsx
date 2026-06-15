@@ -9,8 +9,9 @@ import MatrixDetailModal from '../../components/MatrixDetailModal';
 import ContextDetailModal from '../../components/ContextDetailModal';
 import AddContextModal from '../../components/AddContextModal';
 import TaskDetailModal from '../../components/TaskDetailModal';
-import { taskService, Task } from '../../services/task.service';
+import { taskService, Task, mapTaskToUI } from '../../services/task.service';
 import { contextService, Context } from '../../services/context.service';
+import { eventService } from '../../services/event.service';
 import { notificationService } from '../../services/notification.service';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from 'expo-router';
@@ -63,25 +64,9 @@ export default function DashboardScreen() {
   const fetchTasks = useCallback(async () => {
     try {
       if (!user) return;
-      const today = new Date().toISOString().split('T')[0];
-      
-      const [todayData, allData] = await Promise.all([
-        taskService.getTasksByDate(user.userId, today),
-        taskService.getTasks(user.userId)
-      ]);
+      const allData = await taskService.getTasks(user.userId);
 
-      const mappedTasks = todayData.map(t => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        matrix: t.matrixType,
-        time: t.startTime ? t.startTime.substring(0, 5) : 'Anytime',
-        done: t.status === 'COMPLETED',
-        contextName: t.contextName || 'General',
-        contextId: t.contextId,
-        date: t.targetDate,
-        duration: Math.round(t.estimatedDuration * 60)
-      })).sort((a, b) => {
+      const mappedTasks = allData.map(mapTaskToUI).sort((a: any, b: any) => {
         if (a.time === 'Anytime') return 1;
         if (b.time === 'Anytime') return -1;
         return a.time.localeCompare(b.time);
@@ -113,18 +98,7 @@ export default function DashboardScreen() {
 
   const handleDeepLink = useCallback((tid: number) => {
     const openTask = (t: any) => {
-      setSelectedTaskForDetail({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        matrix: t.matrixType || t.matrix,
-        time: t.startTime ? t.startTime.substring(0, 5) : (t.time || 'Anytime'),
-        done: (t.status === 'COMPLETED' || t.done),
-        contextName: t.contextName || 'General',
-        contextId: t.contextId,
-        date: t.targetDate || t.date,
-        duration: t.estimatedDuration ? Math.round(t.estimatedDuration * 60) : (t.duration || 60)
-      });
+      setSelectedTaskForDetail(mapTaskToUI(t));
       setShowDetailModal(true);
     };
 
@@ -196,16 +170,25 @@ export default function DashboardScreen() {
       setShowAddModal(false);
       fetchTasks();
     } catch (error: any) {
-        if (error.response?.status === 409) {
-            showAlert({
-                title: 'Schedule Conflict',
-                message: error.response.data.message || 'There is a scheduling conflict.',
-                type: 'warning',
-            });
-        } else {
-            console.log('Operation failed', error.message);
-            showAlert({ title: 'Error', message: 'Operation failed. Please check inputs.', type: 'error' });
-        }
+      const msg = error.response?.data?.message || 'Operation failed. Please check inputs.';
+      showAlert({ title: 'Lỗi', message: msg, type: 'error' });
+    }
+  };
+
+  const handleAddEvent = async (eventData: any) => {
+    try {
+      let savedEvent;
+      if (eventData.id) {
+        savedEvent = await eventService.updateEvent(eventData.id, eventData);
+      } else {
+        savedEvent = await eventService.createEvent(eventData);
+      }
+      await notificationService.scheduleEventNotification(savedEvent);
+      setShowAddModal(false);
+      showAlert({ title: 'Thành công', message: 'Tạo sự kiện thành công!', type: 'success' });
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Failed to save event.';
+      showAlert({ title: 'Lỗi', message: msg, type: 'error' });
     }
   };
 
@@ -250,31 +233,22 @@ export default function DashboardScreen() {
     }
   };
 
-  const getTodayTasksForContext = (ctxId: number) => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return tasks.filter(t => t.contextId === ctxId && t.date === todayStr);
+  const getTasksForContext = (ctxId: number) => {
+    return tasks.filter(t => t.contextId === ctxId);
   };
 
   const handleDeleteTask = async (id: number) => {
-    showAlert({
-      title: 'Xóa công việc',
-      message: 'Bạn có chắc chắn muốn xóa công việc này không? Hành động này không thể hoàn tác.',
-      type: 'warning',
-      confirmText: 'Xóa ngay',
-      cancelText: 'Hủy',
-      onConfirm: async () => {
-        try {
-          if (!user) return;
-          await taskService.deleteTask(user.userId, id);
-          await notificationService.cancelTaskNotification(id);
-          setShowDetailModal(false);
-          fetchTasks();
-        } catch (error) {
-          console.error('Delete failed:', error);
-          showAlert({ title: 'Lỗi', message: 'Không thể xóa công việc.', type: 'error' });
-        }
-      }
-    });
+    try {
+      if (!user) return;
+      await taskService.deleteTask(user.userId, id);
+      await notificationService.cancelTaskNotification(id);
+      setShowDetailModal(false);
+      fetchTasks();
+      showAlert({ title: 'Thành công', message: 'Đã xóa công việc.', type: 'success' });
+    } catch (error) {
+      console.error('Delete failed:', error);
+      showAlert({ title: 'Lỗi', message: 'Không thể xóa công việc.', type: 'error' });
+    }
   };
 
   return (
@@ -382,7 +356,16 @@ export default function DashboardScreen() {
 
                   <View style={styles.miniTaskList}>
                     {qTasks.slice(0, 4).map(t => (
-                      <View key={t.id} style={[styles.miniTask, t.isOverloaded && { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                      <View key={t.id} style={[
+                        styles.miniTask, 
+                        t.isOverloaded 
+                          ? { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                          : (!t.done ? { 
+                              borderColor: t.isFixed ? 'rgba(245, 158, 11, 0.5)' : 'rgba(59, 130, 246, 0.5)', 
+                              borderWidth: 1,
+                              backgroundColor: t.isFixed ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)'
+                            } : { borderWidth: 1, borderColor: 'transparent' })
+                      ]}>
                         <View style={[styles.miniDot, { backgroundColor: t.done ? '#4b5563' : (t.isOverloaded ? '#ef4444' : q.color) }]} />
                         <Text style={[styles.miniText, t.done && styles.miniTextDone, t.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{t.title}</Text>
                         {t.isOverloaded && <AlertTriangle size={12} color="#ef4444" style={{ marginLeft: 4 }} />}
@@ -402,6 +385,7 @@ export default function DashboardScreen() {
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddTask}
+        onAddEvent={handleAddEvent}
         task={selectedTaskForDetail}
         contexts={realContexts}
       />
@@ -443,7 +427,7 @@ export default function DashboardScreen() {
       <ContextDetailModal
         visible={!!selectedContext}
         context={selectedContext}
-        items={selectedContext ? getTodayTasksForContext(selectedContext.id) : []}
+        items={selectedContext ? getTasksForContext(selectedContext.id) : []}
         onDelete={handleDeleteContext}
         onToggle={toggleTask}
         onDetail={handleTaskPress}
@@ -487,8 +471,8 @@ const styles = StyleSheet.create({
   boxHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   qLabel: { fontSize: 10, fontWeight: '900' },
   boxTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
-  miniTaskList: { gap: 6 },
-  miniTask: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  miniTaskList: { gap: 4 },
+  miniTask: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 6 },
   miniDot: { width: 4, height: 4, borderRadius: 2 },
   miniText: { color: '#9ca3af', fontSize: 11, flex: 1 },
   miniTextDone: { textDecorationLine: 'line-through', opacity: 0.5 },

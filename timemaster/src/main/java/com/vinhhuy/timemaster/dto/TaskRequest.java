@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 public record TaskRequest(
         @NotBlank(message = "Tiêu đề công việc không được để trống")
@@ -21,5 +22,5 @@ public record TaskRequest(
 
         Boolean isFixed,
         
-        java.time.LocalTime startTime
+        LocalTime startTime
 ) {}

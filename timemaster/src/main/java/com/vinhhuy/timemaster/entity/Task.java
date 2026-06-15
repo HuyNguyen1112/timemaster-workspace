@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 @Entity
 @Table(name = "tasks")
@@ -19,7 +21,6 @@ public class Task {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-
     @Column(nullable = false)
     private String title;
 
@@ -33,25 +34,28 @@ public class Task {
     private Boolean isOverloaded = false;
 
     @Column(name = "start_time")
-    private java.time.LocalTime startTime;
+    private LocalTime startTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "context_id", nullable = true) // Context is optional for fixed tasks
+    @JoinColumn(name = "context_id", nullable = true)
     private Context context;
 
     @Column(name = "target_date")
     private LocalDate targetDate;
 
-    private Double estimatedDuration; // Thời lượng dự kiến (giờ)
+    private Double estimatedDuration;
 
-    private Integer remainingDuration; // Thời lượng còn lại (phút)
+    private Integer remainingDuration;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
-    private java.util.List<TimeBlock> timeBlocks;
+    private List<TimeBlock> timeBlocks;
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PomodoroSession> pomodoroSessions;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private MatrixType matrixType; // Q1, Q2, Q3, Q4
+    private MatrixType matrixType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

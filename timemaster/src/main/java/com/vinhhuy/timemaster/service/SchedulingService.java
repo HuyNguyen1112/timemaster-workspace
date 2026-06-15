@@ -2,6 +2,7 @@ package com.vinhhuy.timemaster.service;
 
 import com.vinhhuy.timemaster.entity.Task;
 import com.vinhhuy.timemaster.entity.TimeBlock;
+import com.vinhhuy.timemaster.dto.TimeBlockResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -24,11 +25,15 @@ public interface SchedulingService {
     class TaskTarget {
         private Long taskId;
         private Task task;
-        private int remainingDuration;
+        private int dailyAllocation;
         private double priorityWeight;
     }
 
     List<TimeBlock> recalculateSchedule(Long userId, LocalDate date, Long contextId);
+
+    List<TimeBlockResponse> getScheduleForDate(Long userId, LocalDate date);
+
+    List<TimeBlockResponse> recalculateAndGetSchedule(Long userId, LocalDate date, Long contextId);
 
     List<FreeSlot> subtractObstacles(Long userId, Long contextId, LocalDate date);
 

@@ -1,20 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { X, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Plus, Minus } from 'lucide-react-native';
 
-interface AddHabitModalProps {
+interface EditHabitModalProps {
     visible: boolean;
     onClose: () => void;
-    onAdd: (habit: any) => void;
+    onSave: (habit: any) => void;
+    initialData?: any;
 }
 
-export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModalProps) {
+export default function EditHabitModal({ visible, onClose, onSave, initialData }: EditHabitModalProps) {
     const [title, setTitle] = useState('');
     const [goal, setGoal] = useState('1');
     const [unit, setUnit] = useState('times');
     const [selectedIcon, setSelectedIcon] = useState('Flame');
     const [selectedColor, setSelectedColor] = useState('#fb923c');
     const [routine, setRoutine] = useState('ALL_DAY');
+
+    useEffect(() => {
+        if (visible && initialData) {
+            setTitle(initialData.name || '');
+            setGoal(initialData.dailyGoal?.toString() || '1');
+            setUnit(initialData.unit || 'times');
+            setSelectedIcon(initialData.icon || 'Flame');
+            setSelectedColor(initialData.colorCode || '#fb923c');
+            setRoutine(initialData.routine || 'ALL_DAY');
+        }
+    }, [visible, initialData]);
     const routines = [
         { id: 'MORNING', label: 'Morning' },
         { id: 'AFTERNOON', label: 'Afternoon' },
@@ -36,7 +48,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
 
     const handleSubmit = () => {
         if (!title.trim()) return;
-        onAdd({
+        onSave({
             name: title,
             icon: selectedIcon,
             dailyGoal: parseInt(goal) || 1,
@@ -45,10 +57,6 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
             frequency: 'DAILY',
             routine: routine
         });
-        setTitle('');
-        setGoal('1');
-        setUnit('times');
-        setRoutine('ALL_DAY');
         onClose();
     };
 
@@ -57,7 +65,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
             <View style={styles.overlay}>
                 <View style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>Brand New Habit</Text>
+                        <Text style={styles.title}>Edit Habit</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                             <X size={20} color="#9ca3af" />
                         </TouchableOpacity>
@@ -143,7 +151,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                         </View>
 
                         <TouchableOpacity style={[styles.addBtn, { backgroundColor: selectedColor }]} onPress={handleSubmit}>
-                            <Text style={styles.addBtnText}>Start Habit</Text>
+                            <Text style={styles.addBtnText}>Save Changes</Text>
                         </TouchableOpacity>
                     </ScrollView>
                 </View>

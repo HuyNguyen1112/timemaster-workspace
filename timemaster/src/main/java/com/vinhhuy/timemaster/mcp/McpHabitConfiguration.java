@@ -41,8 +41,7 @@ public class McpHabitConfiguration {
             String unit,
             String frequency,
             String colorCode,
-            String routine,
-            String selectedDays) {
+            String routine) {
     }
 
     public record McpUpdateHabitParams(
@@ -55,8 +54,7 @@ public class McpHabitConfiguration {
             String unit,
             String frequency,
             String colorCode,
-            String routine,
-            String selectedDays) {
+            String routine) {
     }
 
     @Bean
@@ -115,12 +113,11 @@ public class McpHabitConfiguration {
                             params.unit() != null ? params.unit() : "times",
                             params.frequency() != null ? params.frequency() : "DAILY",
                             params.colorCode() != null ? params.colorCode() : "#8b5cf6",
-                            params.routine() != null ? params.routine() : "ALL_DAY",
-                            params.selectedDays()
+                            params.routine() != null ? params.routine() : "ALL_DAY"
                     );
                     return habitService.createHabit(params.userId(), request);
                 })
-                .description("Tạo một Thói quen (Habit) mới. BẮT BUỘC cung cấp userId và name. Tham số quan trọng: routine (MORNING, AFTERNOON, EVENING, ALL_DAY), selectedDays (chuỗi các ngày, vd '1,3,5' với 1=Thứ2...7=CN).")
+                .description("Tạo một Thói quen (Habit) mới. BẮT BUỘC cung cấp userId và name. Tham số quan trọng: routine (MORNING, AFTERNOON, EVENING, ALL_DAY).")
                 .inputType(McpCreateHabitParams.class)
                 .build();
     }
@@ -138,8 +135,7 @@ public class McpHabitConfiguration {
                             params.unit(),
                             params.frequency(),
                             params.colorCode(),
-                            params.routine(),
-                            params.selectedDays()
+                            params.routine()
                     );
                     return habitService.updateHabit(params.habitId(), params.userId(), request);
                 })

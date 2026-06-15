@@ -18,6 +18,26 @@ export interface Task {
   isOverloaded?: boolean;
 }
 
+export const mapTaskToUI = (t: any) => {
+  return {
+    ...t, // Giữ lại những trường thừa nếu cần thiết
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    matrix: t.matrixType || t.matrix || 'Q4',
+    time: t.startTime ? t.startTime.substring(0, 5) : (t.time || 'Anytime'),
+    done: t.status === 'COMPLETED' || t.done === true,
+    contextName: t.contextName || 'General',
+    contextId: t.contextId,
+    date: t.targetDate || t.date,
+    duration: t.estimatedDuration ? Math.round(t.estimatedDuration * 60) : (t.duration || 60),
+    estimatedDuration: t.estimatedDuration,
+    remainingDuration: t.remainingDuration,
+    isFixed: t.isFixed,
+    isOverloaded: t.isOverloaded
+  };
+};
+
 class TaskService {
   async getTasks(userId: number): Promise<Task[]> {
     const response = await coreApi.get(`${ENDPOINTS.TASKS.BASE}?userId=${userId}`);

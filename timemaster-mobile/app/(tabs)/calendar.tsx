@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, Anchor, Calendar as CalendarIcon, Zap } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, Anchor, Calendar as CalendarIcon, Zap, AlertTriangle } from 'lucide-react-native';
 import AddTaskModal from '../../components/AddTaskModal';
 import AddEventModal from '../../components/AddEventModal';
+import TimeBlockDetailModal from '../../components/TimeBlockDetailModal';
+import TaskDetailModal from '../../components/TaskDetailModal';
 import { useAuth } from '../../context/AuthContext';
-import { taskService, Task } from '../../services/task.service';
+import { taskService, Task, mapTaskToUI } from '../../services/task.service';
 import { contextService, Context } from '../../services/context.service';
 import { eventService, Event } from '../../services/event.service';
 import { scheduleService, TimeBlock } from '../../services/schedule.service';
@@ -31,6 +33,9 @@ export default function CalendarScreen() {
     const [showAddEvent, setShowAddEvent] = useState(false);
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
+    const [showTimeBlockDetail, setShowTimeBlockDetail] = useState(false);
+    const [selectedTimeBlock, setSelectedTimeBlock] = useState<TimeBlock | null>(null);
+    const [showTaskDetail, setShowTaskDetail] = useState(false);
 
     const formatLocalISOString = (d: Date) => {
         const pad = (n: number) => n.toString().padStart(2, '0');
@@ -61,6 +66,9 @@ export default function CalendarScreen() {
             setEvents(eventsData);
             setFixedTasks(allTasks.filter(t => t.isFixed));
             setTimeBlocks(blocks);
+            
+            // Sync timeblock notifications
+            await notificationService.syncTimeBlockNotifications(dateStr, blocks);
             
         } catch (error) {
             console.error('Failed to load data:', error);
@@ -98,6 +106,41 @@ export default function CalendarScreen() {
         }
     };
 
+    const handleDeleteTask = async (taskId: number) => {
+        if (!user) return;
+        try {
+            await taskService.deleteTask(user.userId, taskId);
+            setShowTimeBlockDetail(false);
+            setShowTaskDetail(false);
+            showAlert({ title: 'Thành công', message: 'Đã xóa công việc.', type: 'success' });
+            loadData();
+        } catch (error: any) {
+            showAlert({ title: 'Lỗi', message: error.response?.data?.message || 'Không thể xóa công việc.', type: 'error' });
+        }
+    };
+
+    const handleTaskPress = (t: Task) => {
+        setSelectedTask(mapTaskToUI(t));
+        setShowTaskDetail(true);
+    };
+
+    const handleEditTaskFromBlock = async (taskId: number) => {
+        if (!user) return;
+        try {
+            const allTasksResponse = await taskService.getTasks(user.userId);
+            const foundTask = allTasksResponse.find(t => t.id === taskId);
+            if (foundTask) {
+                setShowTimeBlockDetail(false);
+                setSelectedTask(foundTask);
+                setShowAddTask(true);
+            } else {
+                showAlert({ title: 'Lỗi', message: 'Không tìm thấy thông tin công việc để sửa.', type: 'error' });
+            }
+        } catch (error) {
+            showAlert({ title: 'Lỗi', message: 'Không thể tải thông tin công việc.', type: 'error' });
+        }
+    };
+
     const handleAddTask = async (taskData: any) => {
         try {
             if (!user) return;
@@ -131,12 +174,14 @@ export default function CalendarScreen() {
 
     const handleAddEvent = async (eventData: any) => {
         try {
+            let savedEvent;
             if (eventData.id) {
-                await eventService.updateEvent(eventData.id, eventData);
+                savedEvent = await eventService.updateEvent(eventData.id, eventData);
             } else {
-                await eventService.createEvent(eventData);
+                savedEvent = await eventService.createEvent(eventData);
             }
-            setShowAddEvent(false);
+            await notificationService.scheduleEventNotification(savedEvent);
+            setShowAddTask(false);
             loadData();
         } catch (error: any) {
             showAlert({ title: 'Error', message: error.response?.data?.message || 'Failed to save event.', type: 'error' });
@@ -243,7 +288,7 @@ export default function CalendarScreen() {
                             const startMins = timeToMinutes(ft.startTime);
                             const height = Math.max((ft.estimatedDuration || 1) * 60, 30);
                             return (
-                                <TouchableOpacity key={`ft-${ft.id}`} style={[styles.fixedTaskBlock, { top: startMins, height: height }]} onPress={() => { setSelectedTask(ft); setShowAddTask(true); }}>
+                                <TouchableOpacity key={`ft-${ft.id}`} style={[styles.fixedTaskBlock, { top: startMins, height: height }]} onPress={() => handleTaskPress(ft)}>
                                     <View style={styles.fixedHeader}>
                                         <Anchor size={14} color="#f59e0b" />
                                         <Text style={styles.fixedTaskTitle}>{ft.title}</Text>
@@ -258,22 +303,29 @@ export default function CalendarScreen() {
                             const endMins = timeToMinutes(tb.endTime);
                             const height = Math.max(endMins - startMins, 20);
                             return (
-                                <View key={`tb-${tb.id}`} style={[styles.timeBlock, { top: startMins, height: height, borderColor: tb.isLocked ? '#f59e0b' : '#3b82f6' }]}>
+                                <TouchableOpacity 
+                                    key={`tb-${tb.id}`} 
+                                    style={[styles.timeBlock, { top: startMins, height: height, borderColor: tb.isLocked ? '#f59e0b' : '#3b82f6' }]}
+                                    onPress={() => { setSelectedTimeBlock(tb); setShowTimeBlockDetail(true); }}
+                                >
                                     <View style={styles.timeBlockHeader}>
-                                        <Zap size={14} color="#3b82f6" />
-                                        <Text style={styles.timeBlockTitle} numberOfLines={1}>{tb.taskTitle}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 4 }}>
+                                            <Zap size={14} color={tb.isOverloaded ? "#ef4444" : "#3b82f6"} />
+                                            <Text style={[styles.timeBlockTitle, tb.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{tb.taskTitle}</Text>
+                                        </View>
+                                        {tb.isOverloaded && <AlertTriangle size={14} color="#ef4444" style={{ marginRight: 24 }} />}
                                     </View>
                                     {height >= 40 && (
                                         <Text style={styles.timeBlockSub}>{tb.contextName} • {tb.matrixType}</Text>
                                     )}
                                     <TouchableOpacity 
                                         style={styles.lockBtn} 
-                                        onPress={() => handleToggleLock(tb.id, !tb.isLocked)}
+                                        onPress={(e) => { e.stopPropagation(); handleToggleLock(tb.id, !tb.isLocked); }}
                                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
                                         {tb.isLocked ? <Lock size={16} color="#f59e0b" /> : <Unlock size={16} color="#9ca3af" />}
                                     </TouchableOpacity>
-                                </View>
+                                </TouchableOpacity>
                             );
                         })}
                     </View>
@@ -287,6 +339,26 @@ export default function CalendarScreen() {
                 onAddEvent={handleAddEvent}
                 task={selectedTask}
                 contexts={contexts}
+            />
+
+            <TimeBlockDetailModal 
+                visible={showTimeBlockDetail} 
+                onClose={() => setShowTimeBlockDetail(false)} 
+                onDeleteTask={handleDeleteTask}
+                onEditTask={handleEditTaskFromBlock}
+                timeBlock={selectedTimeBlock} 
+            />
+
+            <TaskDetailModal
+                visible={showTaskDetail}
+                onClose={() => setShowTaskDetail(false)}
+                task={selectedTask}
+                onEdit={(task: any) => {
+                    setSelectedTask(task);
+                    setShowAddTask(true);
+                }}
+                onDelete={handleDeleteTask}
+                onToggle={async () => {}}
             />
 
         </View>

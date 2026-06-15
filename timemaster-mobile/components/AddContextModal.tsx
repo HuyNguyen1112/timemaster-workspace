@@ -47,14 +47,14 @@ export default function AddContextModal({ visible, onClose, onSave, context }: A
                 }
             });
             if (blocks.length === 0) {
-                blocks.push({ days: [2,3,4,5,6], startTime: '08:00', endTime: '17:00' });
+                blocks.push({ days: [1,2,3,4,5], startTime: '08:00', endTime: '17:00' });
             }
             setSchedules(blocks);
         } else if (visible) {
             setName('');
             setSelectedIcon('Briefcase');
             setSelectedColor('#60a5fa');
-            setSchedules([{ days: [2,3,4,5,6], startTime: '08:00', endTime: '17:00' }]);
+            setSchedules([{ days: [1,2,3,4,5], startTime: '08:00', endTime: '17:00' }]);
         }
     }, [context, visible]);
 
@@ -71,13 +71,13 @@ export default function AddContextModal({ visible, onClose, onSave, context }: A
     const colors = ['#60a5fa', '#ef4444', '#a855f7', '#22c55e', '#f97316', '#facc15', '#ec4899'];
 
     const daysOfWeek = [
-        { label: 'T2', value: 2 },
-        { label: 'T3', value: 3 },
-        { label: 'T4', value: 4 },
-        { label: 'T5', value: 5 },
-        { label: 'T6', value: 6 },
-        { label: 'T7', value: 7 },
-        { label: 'CN', value: 1 },
+        { label: 'T2', value: 1 },
+        { label: 'T3', value: 2 },
+        { label: 'T4', value: 3 },
+        { label: 'T5', value: 4 },
+        { label: 'T6', value: 5 },
+        { label: 'T7', value: 6 },
+        { label: 'CN', value: 7 },
     ];
 
     const handleSubmit = () => {
@@ -89,6 +89,19 @@ export default function AddContextModal({ visible, onClose, onSave, context }: A
                 confirmText: 'Đã hiểu',
             });
             return;
+        }
+
+        // Validate start and end time
+        for (let i = 0; i < schedules.length; i++) {
+            if (schedules[i].startTime >= schedules[i].endTime) {
+                showAlert({
+                    title: 'Thời gian không hợp lệ',
+                    message: `Lịch trình từ ${schedules[i].startTime} đến ${schedules[i].endTime} bị sai. Giờ kết thúc phải lớn hơn giờ bắt đầu!`,
+                    type: 'warning',
+                    confirmText: 'Đã hiểu'
+                });
+                return;
+            }
         }
 
         // Validation for identical times
@@ -125,7 +138,7 @@ export default function AddContextModal({ visible, onClose, onSave, context }: A
     };
 
     const addSchedule = () => {
-        setSchedules([...schedules, { days: [2], startTime: '08:00', endTime: '17:00' }]);
+        setSchedules([...schedules, { days: [1], startTime: '08:00', endTime: '17:00' }]);
     };
 
     const removeSchedule = (index: number) => {
