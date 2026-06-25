@@ -34,7 +34,8 @@ export const mapTaskToUI = (t: any) => {
     estimatedDuration: t.estimatedDuration,
     remainingDuration: t.remainingDuration,
     isFixed: t.isFixed,
-    isOverloaded: t.isOverloaded
+    isOverloaded: t.isOverloaded,
+    isOverdue: t.isOverdue
   };
 };
 
@@ -56,6 +57,16 @@ class TaskService {
 
   async updateTask(userId: number, taskId: number, taskData: Partial<Task>): Promise<Task> {
     const response = await coreApi.put(`${ENDPOINTS.TASKS.BASE}/${taskId}?userId=${userId}`, taskData);
+    return response.data;
+  }
+
+  async getOverdueTasks(): Promise<Task[]> {
+    const response = await coreApi.get(ENDPOINTS.TASKS.OVERDUE);
+    return response.data;
+  }
+
+  async cancelTask(taskId: number): Promise<Task> {
+    const response = await coreApi.put(ENDPOINTS.TASKS.CANCEL(taskId));
     return response.data;
   }
 

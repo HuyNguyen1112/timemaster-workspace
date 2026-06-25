@@ -45,6 +45,26 @@ class AuthService {
     return info ? JSON.parse(info) : null;
   }
 
+  async updateProfile(fullName: string): Promise<UserData> {
+    const response = await coreApi.put(ENDPOINTS.USERS.ME, { fullName });
+    const updatedData = response.data;
+    
+    // Merge updated info with existing token info
+    const currentInfo = await this.getUserInfo();
+    const newData: UserData = {
+        ...currentInfo,
+        ...updatedData,
+        token: currentInfo?.token || ''
+    };
+    
+    await SecureStore.setItemAsync('user_info', JSON.stringify(newData));
+    return newData;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await coreApi.put(ENDPOINTS.USERS.PASSWORD, { currentPassword, newPassword });
+  }
+
   async isAuthenticated(): Promise<boolean> {
     const token = await SecureStore.getItemAsync('user_token');
     return !!token;

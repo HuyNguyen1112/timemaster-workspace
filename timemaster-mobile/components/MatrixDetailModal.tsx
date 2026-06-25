@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { X, CheckCircle2, Circle, Play, AlertTriangle } from 'lucide-react-native';
+import { Colors } from '../constants/theme';
+import { focusTargetService } from '../services/pomodoro.service';
 
 export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, onToggle, onDetail }: any) {
     const router = useRouter();
@@ -18,7 +20,7 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                             <Text style={styles.title}>{quadrant.label}</Text>
                         </View>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <X size={20} color="#9ca3af" />
+                            <X size={20} color={Colors.textDim} />
                         </TouchableOpacity>
                     </View>
 
@@ -32,26 +34,30 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                                 <View key={task.id} style={[
                                     styles.taskItemContainer, 
                                     task.isOverloaded 
-                                        ? { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.05)' }
+                                        ? { borderColor: Colors.error, borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.05)' }
                                         : (!task.done ? {
                                             borderColor: task.isFixed ? 'rgba(245, 158, 11, 0.5)' : 'rgba(59, 130, 246, 0.5)',
                                             borderWidth: 1,
                                             backgroundColor: task.isFixed ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)'
-                                        } : {})
+                                        } : {
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            borderWidth: 1,
+                                            backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                                        })
                                 ]}>
                                     <TouchableOpacity 
                                         style={styles.taskInfoArea}
                                         onPress={() => onDetail(task)}
                                     >
-                                        <Text style={[styles.taskTitle, task.done && styles.taskTitleDone, task.isOverloaded && { color: '#ef4444' }]}>
+                                        <Text style={[styles.taskTitle, task.done && styles.taskTitleDone, task.isOverloaded && { color: Colors.error }]}>
                                             {task.title}
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                                             <Text style={styles.taskTime}>{task.time || (task.remainingDuration + ' phút')}</Text>
                                             {task.isOverloaded && (
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
-                                                    <AlertTriangle size={12} color="#ef4444" />
-                                                    <Text style={{ fontSize: 10, color: '#ef4444', marginLeft: 2 }}>Quá tải</Text>
+                                                    <AlertTriangle size={12} color={Colors.error} />
+                                                    <Text style={{ fontSize: 10, color: Colors.error, marginLeft: 2 }}>Quá tải</Text>
                                                 </View>
                                             )}
                                         </View>
@@ -61,13 +67,11 @@ export default function MatrixDetailModal({ visible, onClose, quadrant, tasks, o
                                         style={styles.playIcon}
                                         onPress={() => {
                                             onClose();
-                                            router.push({
-                                                pathname: '/(tabs)/focus',
-                                                params: { taskId: task.id, taskTitle: task.title }
-                                            });
+                                            focusTargetService.setTarget({ type: 'TASK', id: task.id, title: task.title });
+                                            router.navigate('/(tabs)/focus');
                                         }}
                                     >
-                                        <Play size={18} color="#8b5cf6" fill="#8b5cf6" />
+                                        <Play size={18} color={Colors.primary} fill={Colors.primary} />
                                     </TouchableOpacity>
                                 </View>
                             ))
@@ -88,7 +92,7 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     content: {
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         borderRadius: 32,
         width: '100%',
         maxHeight: '80%',
@@ -111,7 +115,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     title: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 22,
         fontWeight: 'bold',
     },
@@ -145,15 +149,16 @@ const styles = StyleSheet.create({
         marginLeft: 16,
     },
     taskTitle: {
-        color: '#f3f4f6',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: '500',
     },
     taskTitleDone: {
         textDecorationLine: 'line-through',
+        color: Colors.textDim,
     },
     taskTime: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 12,
         marginTop: 2,
     },
@@ -162,7 +167,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emptyText: {
-        color: '#4b5563',
+        color: Colors.textDim,
         textAlign: 'center',
     }
 });

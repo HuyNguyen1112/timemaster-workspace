@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { X, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Plus, Minus } from 'lucide-react-native';
+import { Colors } from '../constants/theme';
 
 interface AddHabitModalProps {
     visible: boolean;
@@ -59,7 +60,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                     <View style={styles.header}>
                         <Text style={styles.title}>Brand New Habit</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <X size={20} color="#9ca3af" />
+                            <X size={20} color={Colors.textDim} />
                         </TouchableOpacity>
                     </View>
 
@@ -68,7 +69,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                         <TextInput
                             style={styles.input}
                             placeholder="e.g. Read for 30 mins"
-                            placeholderTextColor="#4b5563"
+                            placeholderTextColor={Colors.textDim}
                             value={title}
                             onChangeText={setTitle}
                         />
@@ -77,7 +78,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                         <View style={styles.goalRow}>
                             <View style={styles.stepper}>
                                 <TouchableOpacity onPress={() => setGoal(Math.max(1, parseInt(goal) - 1).toString())} style={styles.stepBtn}>
-                                    <Minus size={18} color="#ffffff" />
+                                    <Minus size={18} color={Colors.text} />
                                 </TouchableOpacity>
                                 <TextInput 
                                     style={styles.goalText}
@@ -86,7 +87,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                                     keyboardType="numeric"
                                 />
                                 <TouchableOpacity onPress={() => setGoal((parseInt(goal) + 1).toString())} style={styles.stepBtn}>
-                                    <Plus size={18} color="#ffffff" />
+                                    <Plus size={18} color={Colors.text} />
                                 </TouchableOpacity>
                             </View>
                             <View style={{ flexDirection: 'row', flex: 1, marginLeft: 12, gap: 8 }}>
@@ -113,7 +114,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                                     style={[styles.iconBox, selectedIcon === icon.name && { borderColor: selectedColor, backgroundColor: selectedColor + '20' }]}
                                     onPress={() => setSelectedIcon(icon.name)}
                                 >
-                                    {React.cloneElement(icon.component as any, { color: selectedIcon === icon.name ? selectedColor : '#4b5563' })}
+                                    {React.cloneElement(icon.component as any, { color: selectedIcon === icon.name ? selectedColor : Colors.textDim })}
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -126,7 +127,7 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
                                     style={[styles.routineBtn, routine === rt.id && { backgroundColor: selectedColor }]}
                                     onPress={() => setRoutine(rt.id)}
                                 >
-                                    <Text style={[styles.routineText, routine === rt.id && { color: '#ffffff', fontWeight: 'bold' }]}>{rt.label}</Text>
+                                    <Text style={[styles.routineText, routine === rt.id && { color: Colors.text, fontWeight: 'bold' }]}>{rt.label}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -155,11 +156,11 @@ export default function AddHabitModal({ visible, onClose, onAdd }: AddHabitModal
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
     content: {
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     closeBtn: {
         padding: 4,
@@ -182,20 +183,20 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#9ca3af',
+        color: Colors.textDim,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 12,
         marginTop: 16,
     },
     input: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 16,
         padding: 16,
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     goalRow: {
         flexDirection: 'row',
@@ -204,32 +205,34 @@ const styles = StyleSheet.create({
     stepper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 16,
         padding: 8,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     stepBtn: {
         width: 32,
         height: 32,
         borderRadius: 8,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     goalText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 18,
         fontWeight: 'bold',
         marginHorizontal: 16,
         minWidth: 20,
         textAlign: 'center',
     },
-    unitBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-    unitBtnActive: { backgroundColor: 'rgba(168,85,247,0.15)', borderColor: '#a855f7' },
-    unitBtnText: { color: '#9ca3af', fontSize: 14, fontWeight: '600' },
-    unitBtnTextActive: { color: '#c084fc' },
+    unitBtn: { flex: 1, backgroundColor: Colors.background, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+    unitBtnActive: { backgroundColor: 'rgba(168,85,247,0.15)', borderColor: Colors.primary },
+    unitBtnText: { color: Colors.textDim, fontSize: 14, fontWeight: '600' },
+    unitBtnTextActive: { color: Colors.primary },
     grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -239,11 +242,11 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.background,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
-        borderColor: 'transparent',
+        borderColor: Colors.border,
     },
     colorRow: {
         flexDirection: 'row',
@@ -258,7 +261,7 @@ const styles = StyleSheet.create({
     },
     selectedColorCircle: {
         borderWidth: 3,
-        borderColor: '#ffffff',
+        borderColor: Colors.text,
     },
     addBtn: {
         padding: 18,
@@ -280,13 +283,13 @@ const styles = StyleSheet.create({
     routineBtn: {
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     routineText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 14,
     },
     daysGrid: {
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.1)',
     },
     dayText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 14,
     }
 });

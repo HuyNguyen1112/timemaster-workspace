@@ -312,7 +312,8 @@ public class McpTaskConfiguration {
                                                         tb.getTask().getEstimatedDuration(),
                                                         tb.getTask().getRemainingDuration(),
                                                         tb.getTask().getIsOverloaded(),
-                                                        tb.getIsLocked()
+                                                        tb.getIsLocked(),
+                                                        tb.getTask().getStatus() != null ? tb.getTask().getStatus().name() : null
                                                 ))
                                                 .collect(Collectors.toList());
                                 })

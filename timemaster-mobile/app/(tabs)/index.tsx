@@ -9,6 +9,7 @@ import MatrixDetailModal from '../../components/MatrixDetailModal';
 import ContextDetailModal from '../../components/ContextDetailModal';
 import AddContextModal from '../../components/AddContextModal';
 import TaskDetailModal from '../../components/TaskDetailModal';
+import OverdueModal from '../../components/OverdueModal';
 import { taskService, Task, mapTaskToUI } from '../../services/task.service';
 import { contextService, Context } from '../../services/context.service';
 import { eventService } from '../../services/event.service';
@@ -16,6 +17,7 @@ import { notificationService } from '../../services/notification.service';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { Colors } from '../../constants/theme';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -27,6 +29,8 @@ export default function DashboardScreen() {
   const [selectedQuadrant, setSelectedQuadrant] = useState<any>(null);
   const [selectedContext, setSelectedContext] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<any[]>([]);
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [realContexts, setRealContexts] = useState<Context[]>([]);
 
@@ -36,10 +40,10 @@ export default function DashboardScreen() {
   const [allTaskDates, setAllTaskDates] = useState<string[]>([]);
 
   const quadrants = [
-    { id: 'Q1', label: 'Urgent & Important', color: '#ef4444' },
-    { id: 'Q2', label: 'Important, Not Urgent', color: '#8b5cf6' },
-    { id: 'Q3', label: 'Urgent, Not Important', color: '#3b82f6' },
-    { id: 'Q4', label: 'Casual / Relax', color: '#22c55e' },
+    { id: 'Q1', label: 'Urgent & Important', color: Colors.matrix.q1 },
+    { id: 'Q2', label: 'Important, Not Urgent', color: Colors.matrix.q2 },
+    { id: 'Q3', label: 'Urgent, Not Important', color: Colors.matrix.q3 },
+    { id: 'Q4', label: 'Casual / Relax', color: Colors.matrix.q4 },
   ];
 
   const iconMap: any = {
@@ -66,7 +70,7 @@ export default function DashboardScreen() {
       if (!user) return;
       const allData = await taskService.getTasks(user.userId);
 
-      const mappedTasks = allData.map(mapTaskToUI).sort((a: any, b: any) => {
+      const mappedTasks = allData.map(mapTaskToUI).filter((t: any) => !t.done).sort((a: any, b: any) => {
         if (a.time === 'Anytime') return 1;
         if (b.time === 'Anytime') return -1;
         return a.time.localeCompare(b.time);
@@ -75,6 +79,10 @@ export default function DashboardScreen() {
 
       const dates = Array.from(new Set(allData.map(t => t.targetDate)));
       setAllTaskDates(dates);
+
+      // Fetch overdue tasks
+      const overdueData = await taskService.getOverdueTasks();
+      setOverdueTasks(overdueData.map(mapTaskToUI));
     } catch (error) {
       console.error('Failed to fetch tasks', error);
     }
@@ -88,7 +96,7 @@ export default function DashboardScreen() {
 
   const searchParams = useLocalSearchParams();
   const lastResponse = Notifications.useLastNotificationResponse();
-  
+
   useFocusEffect(
     useCallback(() => {
       fetchTasks();
@@ -109,6 +117,9 @@ export default function DashboardScreen() {
   }, [user?.userId]);
 
   useEffect(() => {
+    // Đăng ký thông báo lặp lại hàng ngày lúc 8h
+    notificationService.scheduleDailyOverdueNotification();
+
     const tidFromUrl = searchParams.taskId ? Number(searchParams.taskId) : null;
     const tidFromNotify = lastResponse?.notification.request.content.data?.taskId;
     const finalTid = tidFromNotify || tidFromUrl;
@@ -127,7 +138,7 @@ export default function DashboardScreen() {
       const task = tasks.find(t => t.id === id);
       setTasks(prev => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
       await taskService.completeTask(user.userId, id);
-      
+
       if (task && !task.done) {
         await notificationService.cancelTaskNotification(id);
       }
@@ -140,6 +151,16 @@ export default function DashboardScreen() {
   const handleTaskPress = (task: any) => {
     setSelectedTaskForDetail(task);
     setShowDetailModal(true);
+  };
+
+  const handleCancelOverdueTask = async (taskId: number) => {
+    try {
+      await taskService.cancelTask(taskId);
+      setOverdueTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (error: any) {
+      console.log('Cancel failed', error.message);
+      showAlert({ title: 'Lỗi', message: 'Không thể hủy công việc này.', type: 'error' });
+    }
   };
 
   const handleAddTask = async (taskData: any) => {
@@ -208,7 +229,7 @@ export default function DashboardScreen() {
         await contextService.createContext(payload);
         showAlert({ title: 'Thành công', message: 'Tạo Context thành công!', type: 'success' });
       }
-      
+
       fetchContexts();
       setContextToEdit(null);
     } catch (error: any) {
@@ -222,7 +243,7 @@ export default function DashboardScreen() {
     try {
       await contextService.deleteContext(id);
       fetchContexts();
-      fetchTasks(); 
+      fetchTasks();
     } catch (error: any) {
       console.log('Delete context failed:', error.message);
       const msg = error.response?.data?.message || 'Không thể xóa ngữ cảnh.';
@@ -258,7 +279,7 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8b5cf6" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
         <View style={styles.header}>
@@ -273,7 +294,7 @@ export default function DashboardScreen() {
             const todayIdx = new Date().getDay();
             const adjustedToday = todayIdx === 0 ? 6 : todayIdx - 1;
             const isActive = i === adjustedToday;
-            
+
             const dateObj = new Date(Date.now() + (i - adjustedToday) * 86400000);
             const dateStr = dateObj.toISOString().split('T')[0];
             const hasTasks = allTaskDates.includes(dateStr);
@@ -286,20 +307,36 @@ export default function DashboardScreen() {
                     {dateObj.getDate()}
                   </Text>
                 </View>
-                {hasTasks && <View style={[styles.dateDot, isActive && { backgroundColor: '#a855f7' }]} />}
+                {hasTasks && <View style={[styles.dateDot, isActive && { backgroundColor: Colors.primary }]} />}
               </View>
             );
           })}
         </TouchableOpacity>
 
+        {overdueTasks.length > 0 && (
+          <TouchableOpacity 
+            style={[styles.calendarBanner, { alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: Colors.error, marginTop: 16 }]} 
+            onPress={() => setShowOverdueModal(true)}
+          >
+            <AlertTriangle size={24} color={Colors.error} />
+            <View style={{ marginLeft: 16, marginRight: 16, flex: 1 }}>
+              <Text style={{ color: Colors.error, fontWeight: 'bold', fontSize: 16 }}>Needs Review ({overdueTasks.length})</Text>
+              <Text style={{ color: Colors.textDim, fontSize: 13, marginTop: 4 }}>
+                Bạn có công việc đã quá hạn. Nhấn vào để xem lại.
+              </Text>
+            </View>
+            <ChevronRight size={20} color={Colors.error} />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Contexts</Text>
             <TouchableOpacity onPress={() => {
-                setContextToEdit(null);
-                setShowAddContextModal(true);
+              setContextToEdit(null);
+              setShowAddContextModal(true);
             }} style={styles.addBtnIcon}>
-              <Plus size={20} color="#ffffff" />
+              <Plus size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.habitScroll}>
@@ -317,7 +354,7 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.titleRow}>
-              <LayoutGrid size={16} color="#9ca3af" />
+              <LayoutGrid size={16} color={Colors.textDim} />
               <View>
                 <Text style={styles.sectionTitle}>Eisenhower Matrix</Text>
                 <Text style={styles.sectionSubtitle}>
@@ -330,12 +367,12 @@ export default function DashboardScreen() {
               </View>
             </View>
             <TouchableOpacity onPress={() => {
-                const now = new Date();
-                const today = now.toISOString().split('T')[0];
-                setSelectedTaskForDetail({ date: today, time: null, isFixed: false });
-                setShowAddModal(true);
+              const now = new Date();
+              const today = now.toISOString().split('T')[0];
+              setSelectedTaskForDetail({ date: today, time: null, isFixed: false });
+              setShowAddModal(true);
             }} style={styles.addBtnSmall}>
-              <Plus size={16} color="#ffffff" />
+              <Plus size={16} color={Colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -350,25 +387,25 @@ export default function DashboardScreen() {
                 >
                   <View style={styles.boxHeader}>
                     <Text style={[styles.qLabel, { color: q.color }]}>{q.id}</Text>
-                    <ChevronRight size={14} color="#4b5563" />
+                    <ChevronRight size={14} color={Colors.textDim} />
                   </View>
                   <Text style={styles.boxTitle} numberOfLines={1}>{q.label}</Text>
 
                   <View style={styles.miniTaskList}>
                     {qTasks.slice(0, 4).map(t => (
                       <View key={t.id} style={[
-                        styles.miniTask, 
-                        t.isOverloaded 
-                          ? { borderColor: '#ef4444', borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }
-                          : (!t.done ? { 
-                              borderColor: t.isFixed ? 'rgba(245, 158, 11, 0.5)' : 'rgba(59, 130, 246, 0.5)', 
-                              borderWidth: 1,
-                              backgroundColor: t.isFixed ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)'
-                            } : { borderWidth: 1, borderColor: 'transparent' })
+                        styles.miniTask,
+                          t.isOverloaded
+                            ? { borderColor: Colors.error, borderWidth: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                          : (!t.done ? {
+                            borderColor: t.isFixed ? 'rgba(245, 158, 11, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+                            borderWidth: 1,
+                            backgroundColor: t.isFixed ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)'
+                          } : { borderWidth: 1, borderColor: 'transparent' })
                       ]}>
-                        <View style={[styles.miniDot, { backgroundColor: t.done ? '#4b5563' : (t.isOverloaded ? '#ef4444' : q.color) }]} />
-                        <Text style={[styles.miniText, t.done && styles.miniTextDone, t.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{t.title}</Text>
-                        {t.isOverloaded && <AlertTriangle size={12} color="#ef4444" style={{ marginLeft: 4 }} />}
+                        <View style={[styles.miniDot, { backgroundColor: t.done ? Colors.textDim : (t.isOverloaded ? Colors.error : q.color) }]} />
+                        <Text style={[styles.miniText, t.done && styles.miniTextDone, t.isOverloaded && { color: Colors.error }]} numberOfLines={1}>{t.title}</Text>
+                        {t.isOverloaded && <AlertTriangle size={12} color={Colors.error} style={{ marginLeft: 4 }} />}
                       </View>
                     ))}
                     {qTasks.length > 4 && <Text style={styles.moreText}>+{qTasks.length - 4} more</Text>}
@@ -393,8 +430,8 @@ export default function DashboardScreen() {
       <AddContextModal
         visible={showAddContextModal}
         onClose={() => {
-            setShowAddContextModal(false);
-            setContextToEdit(null);
+          setShowAddContextModal(false);
+          setContextToEdit(null);
         }}
         onSave={handleSaveContext}
         context={contextToEdit}
@@ -414,13 +451,13 @@ export default function DashboardScreen() {
         onClose={() => setShowDetailModal(false)}
         task={selectedTaskForDetail}
         onEdit={(task: any) => {
-            setSelectedTaskForDetail(task);
-            setShowAddModal(true);
+          setSelectedTaskForDetail(task);
+          setShowAddModal(true);
         }}
         onDelete={handleDeleteTask}
         onToggle={async (id: number) => {
-            await toggleTask(id);
-            setSelectedTaskForDetail((prev: any) => prev ? { ...prev, done: !prev.done } : null);
+          await toggleTask(id);
+          setSelectedTaskForDetail((prev: any) => prev ? { ...prev, done: !prev.done } : null);
         }}
       />
 
@@ -432,54 +469,66 @@ export default function DashboardScreen() {
         onToggle={toggleTask}
         onDetail={handleTaskPress}
         onEdit={(ctx: any) => {
-            setSelectedContext(null);
-            setTimeout(() => {
-                setContextToEdit(ctx);
-                setShowAddContextModal(true);
-            }, 300);
+          setSelectedContext(null);
+          setTimeout(() => {
+            setContextToEdit(ctx);
+            setShowAddContextModal(true);
+          }, 300);
         }}
         onClose={() => setSelectedContext(null)}
+      />
+
+      <OverdueModal
+        visible={showOverdueModal}
+        onClose={() => setShowOverdueModal(false)}
+        tasks={overdueTasks}
+        onCancelTask={handleCancelOverdueTask}
+        onEditTask={(task: any) => {
+          setShowOverdueModal(false);
+          setSelectedTaskForDetail(task);
+          setShowAddModal(true);
+        }}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#130f1e' },
+  container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { padding: 24, paddingBottom: 120 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, marginTop: 20 },
-  greetingText: { fontSize: 24, fontWeight: 'bold', color: '#ffffff' },
-  subText: { fontSize: 14, color: '#a855f7', marginTop: 4, opacity: 0.8 },
-  calendarBanner: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(168,85,247,0.2)', marginBottom: 32 },
+  greetingText: { fontSize: 24, fontWeight: 'bold', color: Colors.text },
+  subText: { fontSize: 14, color: Colors.primary, marginTop: 4, opacity: 0.8 },
+  calendarBanner: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 32 },
   dayCol: { alignItems: 'center' },
-  dayText: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
-  activeDayText: { color: '#a855f7' },
+  dayText: { fontSize: 12, fontWeight: '600', color: Colors.textDim, marginBottom: 8 },
+  activeDayText: { color: Colors.primary },
   dateCircle: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17 },
-  activeDateCircle: { backgroundColor: 'rgba(168,85,247,0.15)', borderWidth: 1, borderColor: 'rgba(168,85,247,0.4)' },
-  dateText: { fontSize: 14, fontWeight: '600', color: '#d1d5db' },
-  dateDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#6b7280', marginTop: 4 },
-  activeDateText: { color: '#c084fc' },
+  activeDateCircle: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.primary },
+  dateText: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  dateDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.textDim, marginTop: 4 },
+  activeDateText: { color: Colors.primary },
   section: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#f3f4f6', textTransform: 'uppercase', letterSpacing: 1 },
-  sectionSubtitle: { fontSize: 11, color: '#8b5cf6', marginTop: 2, fontWeight: '600' },
-  addBtnIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#8b5cf6', alignItems: 'center', justifyContent: 'center' },
-  addBtnSmall: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#8b5cf6', alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionSubtitle: { fontSize: 11, color: Colors.primary, marginTop: 2, fontWeight: '600' },
+  addBtnIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  addBtnSmall: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   matrixGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  matrixBox: { width: '48%', minHeight: 160, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  matrixBox: { width: '48%', minHeight: 160, backgroundColor: Colors.surface, borderRadius: 24, padding: 16, borderWidth: 1, borderColor: Colors.border },
   boxHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   qLabel: { fontSize: 10, fontWeight: '900' },
-  boxTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
+  boxTitle: { color: Colors.text, fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
   miniTaskList: { gap: 4 },
   miniTask: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 6 },
   miniDot: { width: 4, height: 4, borderRadius: 2 },
-  miniText: { color: '#9ca3af', fontSize: 11, flex: 1 },
+  miniText: { color: Colors.textDim, fontSize: 11, flex: 1 },
   miniTextDone: { textDecorationLine: 'line-through', opacity: 0.5 },
-  moreText: { color: '#4b5563', fontSize: 10, marginTop: 2 },
+  moreText: { color: Colors.textDim, fontSize: 10, marginTop: 2 },
   emptyText: { color: '#333', fontSize: 11, fontStyle: 'italic' },
   habitScroll: { gap: 16, flexDirection: 'row' },
   contextItem: { alignItems: 'center', marginRight: 16 },
-  contextIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  contextLabel: { fontSize: 12, fontWeight: '500', color: '#9ca3af' }
+  contextIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  contextLabel: { fontSize: 12, fontWeight: '500', color: Colors.textDim }
 });

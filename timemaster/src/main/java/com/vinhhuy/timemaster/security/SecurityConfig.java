@@ -72,8 +72,8 @@ public class SecurityConfig {
 
                 // 3. Phân quyền các đường dẫn API
                 .authorizeHttpRequests(auth -> auth
-                        // Mở cửa hoàn toàn cho các API liên quan đến Đăng ký, Đăng nhập
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // Mở cửa hoàn toàn cho các API liên quan đến Đăng ký, Đăng nhập và Dev tools
+                        .requestMatchers("/api/auth/**", "/api/dev/**").permitAll()
                         // Cho phép đường truyền máy quét nội bộ MCP đi qua không cần JWT
                         .requestMatchers("/mcp/**", "/sse", "/error").permitAll()
                         // TẤT CẢ các API còn lại (Task, Pomodoro...) ĐỀU PHẢI có thẻ JWT (đã đăng nhập)

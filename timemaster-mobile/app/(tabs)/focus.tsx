@@ -5,15 +5,15 @@ import { BrainCircuit, Play, Pause, ChevronRight, Square, Settings2, Plus, Minus
 import { useAuth } from '../../context/AuthContext';
 import { taskService } from '../../services/task.service';
 import { habitService } from '../../services/habit.service';
-import { pomodoroService } from '../../services/pomodoro.service';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { pomodoroService, focusTargetService } from '../../services/pomodoro.service';
+import { useFocusEffect, router } from 'expo-router';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { Colors } from '../../constants/theme';
 
 export default function FocusScreen() {
     const { showAlert } = useCustomAlert();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
-    const { habitId, habitTitle, taskId, taskTitle } = useLocalSearchParams();
     const [isPlaying, setIsPlaying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(25 * 60);          // dùng cho Pomodoro (đếm xuống)
     const [elapsed, setElapsed] = useState(0);                   // dùng cho Custom Focus (đếm lên)
@@ -45,7 +45,7 @@ export default function FocusScreen() {
                     realId: t.id,
                     title: t.title,
                     type: 'TASK',
-                    color: '#8b5cf6'
+                    color: Colors.primary
                 }));
     
             const mappedHabits = habits
@@ -55,7 +55,7 @@ export default function FocusScreen() {
                     realId: h.id,
                     title: h.name,
                     type: 'HABIT',
-                    color: '#22c55e'
+                    color: Colors.success
                 }));
     
             setTodayItems([...mappedTasks, ...mappedHabits]);
@@ -69,26 +69,32 @@ export default function FocusScreen() {
     useFocusEffect(
         useCallback(() => {
             loadFocusData();
-            
-            // Handle automatic selection from Habit Detail or Calendar TimeBlock
-            if (habitId && habitTitle) {
-                setSelectedEntity({
-                    id: `habit-${habitId}`,
-                    realId: Number(habitId),
-                    title: habitTitle as string,
-                    type: 'HABIT',
-                    color: '#22c55e'
-                });
-            } else if (taskId && taskTitle) {
-                setSelectedEntity({
-                    id: `task-${taskId}`,
-                    realId: Number(taskId),
-                    title: taskTitle as string,
-                    type: 'TASK',
-                    color: '#8b5cf6'
-                });
+
+            const target = focusTargetService.consumeTarget();
+            if (target) {
+                if (isPlaying) {
+                    showAlert({ title: 'Cảnh báo', message: `Vui lòng dừng phiên hiện tại trước khi chuyển sang ${target.type === 'HABIT' ? 'mục tiêu' : 'công việc'} khác!`, type: 'warning' });
+                } else {
+                    if (target.type === 'HABIT') {
+                        setSelectedEntity({
+                            id: `habit-${target.id}`,
+                            realId: Number(target.id),
+                            title: target.title,
+                            type: 'HABIT',
+                            color: Colors.success
+                        });
+                    } else if (target.type === 'TASK') {
+                        setSelectedEntity({
+                            id: `task-${target.id}`,
+                            realId: Number(target.id),
+                            title: target.title,
+                            type: 'TASK',
+                            color: Colors.primary
+                        });
+                    }
+                }
             }
-        }, [loadFocusData, habitId, habitTitle, taskId, taskTitle])
+        }, [loadFocusData, isPlaying])
     );
 
     useEffect(() => {
@@ -275,14 +281,14 @@ export default function FocusScreen() {
             <View style={styles.header}>
                 <View style={styles.topRow}>
                     <View style={styles.badge}>
-                        <BrainCircuit size={16} color="#60a5fa" />
+                        <BrainCircuit size={16} color={Colors.matrix.q2} />
                         <Text style={styles.badgeText}>{isCustomMode ? 'Custom Focus' : 'Pomodoro'}</Text>
                     </View>
                     <TouchableOpacity
                         style={[styles.toggleButton, isCustomMode && styles.toggleButtonActive]}
                         onPress={toggleMode}
                     >
-                        <Settings2 size={18} color={isCustomMode ? '#ffffff' : '#9ca3af'} />
+                        <Settings2 size={18} color={isCustomMode ? Colors.text : Colors.textDim} />
                     </TouchableOpacity>
                 </View>
 
@@ -293,9 +299,9 @@ export default function FocusScreen() {
                 >
                     <Text style={styles.subtitle}>Focusing on</Text>
                     <View style={styles.targetInfo}>
-                        <Target size={16} color={sessionStartTime ? '#6b7280' : '#a855f7'} />
-                        <Text style={[styles.title, sessionStartTime && { color: '#9ca3af' }]}>{selectedEntity.title}</Text>
-                        {!sessionStartTime && <ChevronRight size={16} color="#6b7280" />}
+                        <Target size={16} color={sessionStartTime ? Colors.textDim : Colors.primary} />
+                        <Text style={[styles.title, sessionStartTime && { color: Colors.textDim }]}>{selectedEntity.title}</Text>
+                        {!sessionStartTime && <ChevronRight size={16} color={Colors.textDim} />}
                         {!!sessionStartTime && <View style={styles.lockBadge}><Text style={styles.lockText}>🔒 Reset để đổi</Text></View>}
                     </View>
                 </TouchableOpacity>
@@ -322,14 +328,14 @@ export default function FocusScreen() {
             {/* Lower Controls */}
             <View style={[styles.controls, { bottom: insets.bottom + 110 }]}>
                 <TouchableOpacity style={styles.controlButton} onPress={resetTimer}>
-                    <Square size={20} color="#9ca3af" fill="#9ca3af" />
+                    <Square size={20} color={Colors.textDim} fill={Colors.textDim} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={styles.playButton}
                     onPress={() => setIsPlaying(!isPlaying)}
                 >
-                    {isPlaying ? <Pause size={32} color="#ffffff" fill="#ffffff" /> : <Play size={36} color="#ffffff" fill="#ffffff" style={{ marginLeft: 4 }} />}
+                    {isPlaying ? <Pause size={32} color={Colors.text} fill={Colors.text} /> : <Play size={36} color={Colors.text} fill={Colors.text} style={{ marginLeft: 4 }} />}
                 </TouchableOpacity>
 
                 {/* Zap: đổi Task/Habit — khoá khi đang có session */}
@@ -338,7 +344,7 @@ export default function FocusScreen() {
                     onPress={() => !sessionStartTime && setShowPicker(true)}
                     disabled={!!sessionStartTime}
                 >
-                    <Zap size={20} color="#9ca3af" />
+                    <Zap size={20} color={Colors.textDim} />
                 </TouchableOpacity>
             </View>
 
@@ -354,9 +360,9 @@ export default function FocusScreen() {
                         </View>
                         <ScrollView style={styles.pickerList}>
                             {loading ? (
-                                <ActivityIndicator color="#8b5cf6" style={{ marginTop: 20 }} />
+                                <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
                             ) : todayItems.length === 0 ? (
-                                <Text style={{ color: '#9ca3af', textAlign: 'center', marginTop: 20 }}>No tasks or habits for today.</Text>
+                                <Text style={{ color: Colors.textDim, textAlign: 'center', marginTop: 20 }}>No tasks or habits for today.</Text>
                             ) : (
                                 todayItems.map(item => (
                                     <TouchableOpacity
@@ -368,7 +374,7 @@ export default function FocusScreen() {
                                             <Text style={{ color: item.color, fontWeight: 'bold' }}>{item.type[0]}</Text>
                                         </View>
                                         <Text style={styles.itemTitle}>{item.title}</Text>
-                                        {selectedEntity.id === item.id && <Check size={18} color="#8b5cf6" />}
+                                        {selectedEntity.id === item.id && <Check size={18} color={Colors.primary} />}
                                     </TouchableOpacity>
                                 ))
                             )}
@@ -383,7 +389,7 @@ export default function FocusScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -412,7 +418,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
     },
     badgeText: {
-        color: '#60a5fa',
+        color: Colors.matrix.q2,
         marginLeft: 8,
         fontSize: 14,
         fontWeight: '600',
@@ -421,27 +427,29 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     toggleButtonActive: {
-        backgroundColor: '#3b82f6',
-        borderColor: '#60a5fa',
+        backgroundColor: Colors.matrix.q2,
+        borderColor: Colors.matrix.q2,
     },
     targetCard: {
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
         borderRadius: 20,
         padding: 16,
         width: '100%',
         alignItems: 'center',
     },
     targetCardLocked: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.background,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     lockBadge: {
         backgroundColor: 'rgba(168,85,247,0.15)',
@@ -452,7 +460,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(168,85,247,0.2)',
     },
     lockText: {
-        color: '#c084fc',
+        color: Colors.primary,
         fontSize: 11,
         fontWeight: '600',
     },
@@ -463,13 +471,13 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     subtitle: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 12,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     title: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 18,
         fontWeight: 'bold',
     },
@@ -482,7 +490,9 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -495,24 +505,24 @@ const styles = StyleSheet.create({
         height: 260,
         borderRadius: 999,
         borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
         borderStyle: 'solid',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: Colors.surface,
         overflow: 'hidden',
     },
     timerRingActive: {
-        borderColor: '#a855f7',
+        borderColor: Colors.primary,
         borderWidth: 3,
-        shadowColor: '#a855f7',
+        shadowColor: Colors.primary,
         shadowOpacity: 0.8,
         shadowRadius: 40,
     },
     timeText: {
         fontSize: 64,
         fontWeight: '900',
-        color: '#ffffff',
+        color: Colors.text,
         fontFamily: 'System',
     },
     typeBadge: {
@@ -523,7 +533,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     typeBadgeText: {
-        color: '#c084fc',
+        color: Colors.primary,
         fontSize: 10,
         fontWeight: 'bold',
         letterSpacing: 1,
@@ -539,9 +549,9 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.surface,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -549,11 +559,11 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 8,
-        shadowColor: '#8b5cf6',
+        shadowColor: Colors.primary,
         shadowOpacity: 0.4,
         shadowRadius: 10,
     },
@@ -564,7 +574,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#161618',
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
@@ -577,12 +587,12 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     modalTitle: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 18,
         fontWeight: 'bold',
     },
     closeText: {
-        color: '#8b5cf6',
+        color: Colors.primary,
         fontWeight: 'bold',
     },
     pickerList: {
@@ -592,12 +602,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.background,
+        borderWidth: 1,
+        borderColor: Colors.border,
         borderRadius: 16,
         marginBottom: 12,
     },
     pickerItemActive: {
-        borderColor: '#8b5cf6',
+        borderColor: Colors.primary,
         borderWidth: 1,
         backgroundColor: 'rgba(139,92,246,0.1)',
     },
@@ -610,7 +622,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     itemTitle: {
-        color: '#f3f4f6',
+        color: Colors.text,
         fontSize: 16,
         flex: 1,
     },

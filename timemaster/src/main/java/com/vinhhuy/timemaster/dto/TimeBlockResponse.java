@@ -17,5 +17,6 @@ public record TimeBlockResponse(
     Double estimatedDuration,
     Integer remainingDuration,
     Boolean isOverloaded,
-    Boolean isLocked
+    Boolean isLocked,
+    String taskStatus
 ) {}

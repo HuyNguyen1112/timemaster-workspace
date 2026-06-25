@@ -17,6 +17,7 @@ import { authService } from '../services/auth.service';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { notificationService } from '../services/notification.service';
 import { AlertProvider } from '../components/CustomAlertContext';
+import { Colors } from '../constants/theme';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -46,8 +47,8 @@ function RootLayoutNav() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#130f1e', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#8b5cf6" />
+      <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }

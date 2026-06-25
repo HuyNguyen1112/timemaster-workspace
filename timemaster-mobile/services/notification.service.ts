@@ -130,6 +130,40 @@ class NotificationService {
     }
   }
 
+  async scheduleDailyOverdueNotification() {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      // Xóa thông báo cũ tránh trùng lặp
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const existing = scheduled.find(n => n.content.data?.type === 'overdue_daily');
+      if (existing) {
+        return; // Đã cài đặt rồi thì thôi
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '📋 Kiểm tra Hộp chờ xử lý',
+          body: 'Chào buổi sáng! Hãy kiểm tra xem bạn có công việc nào bị lỡ hạn cần dời ngày hay hủy bỏ không nhé.',
+          data: { type: 'overdue_daily' },
+          sound: 'default',
+        },
+        trigger: {
+          type: 'daily',
+          channelId: 'tm-alarms',
+          hour: 8,
+          minute: 0,
+          repeats: true,
+        } as any,
+      });
+
+      console.log('[Notification] Scheduled daily Overdue check at 8:00 AM');
+    } catch (error) {
+      console.error('[Notification] Error scheduling daily overdue:', error);
+    }
+  }
+
   async scheduleHabitNotifications(habit: any) {
     try {
       await this.cancelHabitNotifications(habit.id);

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView,
 import { X, Briefcase, Heart, BookOpen, User, Star, Coffee, Gamepad2, Plus, Trash2, Clock } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCustomAlert } from './CustomAlertContext';
+import { Colors } from '../constants/theme';
 
 interface ScheduleBlock {
     days: number[];
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     content: {
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     closeBtn: {
         padding: 4,
@@ -339,20 +340,20 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#9ca3af',
+        color: Colors.textDim,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 12,
         marginTop: 16,
     },
     input: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 16,
         padding: 16,
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     grid: {
         flexDirection: 'row',
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderWidth: 2,
         borderColor: 'transparent',
         alignItems: 'center',
@@ -382,23 +383,23 @@ const styles = StyleSheet.create({
         borderColor: 'transparent',
     },
     selectedColorCircle: {
-        borderColor: '#ffffff',
+        borderColor: Colors.text,
     },
     switchRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginTop: 24,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.background,
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     labelSwitch: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#ffffff',
+        color: Colors.text,
     },
     schedulesSection: {
         marginTop: 8,
@@ -421,17 +422,17 @@ const styles = StyleSheet.create({
     },
     emptyScheduleText: {
         fontSize: 13,
-        color: '#6b7280',
+        color: Colors.textDim,
         fontStyle: 'italic',
         marginTop: 4,
     },
     scheduleCard: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 16,
         padding: 16,
         marginTop: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     deleteScheduleBtn: {
         position: 'absolute',
@@ -454,15 +455,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: '#4b5563',
+        borderColor: Colors.border,
     },
     dayText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#9ca3af',
+        color: Colors.textDim,
     },
     dayTextActive: {
-        color: '#ffffff',
+        color: Colors.text,
     },
     timeSelectorRow: {
         flexDirection: 'row',
@@ -475,20 +476,20 @@ const styles = StyleSheet.create({
     },
     timeLabel: {
         fontSize: 12,
-        color: '#6b7280',
+        color: Colors.textDim,
         marginBottom: 6,
     },
     timePickerBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        backgroundColor: Colors.background,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: 12,
         gap: 6,
     },
     timeValueText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 14,
         fontWeight: 'bold',
         fontVariant: ['tabular-nums'],
@@ -496,7 +497,7 @@ const styles = StyleSheet.create({
     timeDivider: {
         width: 16,
         height: 2,
-        backgroundColor: '#4b5563',
+        backgroundColor: Colors.border,
         marginHorizontal: 8,
         marginTop: 20,
     },

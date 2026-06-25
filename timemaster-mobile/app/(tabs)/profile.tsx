@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { notificationService } from '../../services/notification.service';
 import { useCustomAlert } from '../../components/CustomAlertContext';
 import { useRouter } from 'expo-router';
+import { Colors } from '../../constants/theme';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
@@ -31,25 +32,23 @@ export default function ProfileScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Profile</Text>
-                <TouchableOpacity style={styles.settingsBtn}>
-                    <Settings size={22} color="#ffffff" />
-                </TouchableOpacity>
+                    <Settings size={22} color={Colors.text} />
             </View>
 
             <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
                 {/* Profile Card */}
                 <View style={styles.profileCard}>
                     <View style={styles.avatarWrapper}>
-                        <Image source={{ uri: `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}&background=8b5cf6&color=fff` }} style={styles.avatar} />
+                        <Image source={{ uri: `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}&background=${Colors.primary.replace('#', '')}&color=fff` }} style={styles.avatar} />
                         <TouchableOpacity style={styles.editBadge}>
-                            <User size={14} color="#ffffff" />
+                            <User size={14} color={Colors.text} />
                         </TouchableOpacity>
                     </View>
                     <Text style={styles.userName}>{user?.fullName || 'TimeMaster User'}</Text>
                     <Text style={styles.userEmail}>{user?.email || 'đang tải...'}</Text>
 
                     <View style={styles.levelBadge}>
-                        <Award size={14} color="#facc15" />
+                        <Award size={14} color={Colors.warning} />
                         <Text style={styles.levelText}>Productivity Master • Lvl 1</Text>
                     </View>
                 </View>
@@ -58,33 +57,40 @@ export default function ProfileScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>General</Text>
 
-                    <MenuLink icon={<User size={20} color="#60a5fa" />} label="Personal Information" />
                     <MenuLink 
-                        icon={<BarChart3 size={20} color="#a855f7" />} 
+                        icon={<User size={20} color={Colors.matrix.q3} />} 
+                        label="Personal Information" 
+                        onPress={() => router.push('/profile/info')}
+                    />
+                    <MenuLink 
+                        icon={<BarChart3 size={20} color={Colors.primary} />} 
                         label="Detailed Analytics" 
                         onPress={() => router.push('/analytics')}
                     />
-                    <MenuLink icon={<Bell size={20} color="#fb923c" />} label="Notifications" />
-                    <MenuLink icon={<Shield size={20} color="#22c55e" />} label="Privacy & Security" />
+                    <MenuLink 
+                        icon={<Shield size={20} color={Colors.success} />} 
+                        label="Privacy & Security" 
+                        onPress={() => router.push('/profile/security')}
+                    />
                     
                     <TouchableOpacity 
-                        style={[styles.menuItem, { marginTop: 12, backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}
+                        style={[styles.menuItem, { marginTop: 12, backgroundColor: Colors.primary + '10', borderColor: Colors.primary, borderWidth: 1 }]}
                         onPress={async () => {
                             await notificationService.testNotificationNow();
                         }}
                     >
                         <View style={styles.menuLeft}>
-                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                                <Bell size={20} color="#8b5cf6" />
+                            <View style={[styles.iconCircle, { backgroundColor: Colors.primary + '20' }]}>
+                                <Bell size={20} color={Colors.primary} />
                             </View>
-                            <Text style={[styles.menuLabel, { color: '#a78bfa' }]}>Test Báo Thức (5 giây tới)</Text>
+                            <Text style={[styles.menuLabel, { color: Colors.primary }]}>Test Báo Thức (5 giây tới)</Text>
                         </View>
-                        <ChevronRight size={18} color="#8b5cf6" />
+                        <ChevronRight size={18} color={Colors.primary} />
                     </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                    <LogOut size={20} color="#ef4444" />
+                    <LogOut size={20} color={Colors.error} />
                     <Text style={styles.logoutText}>Đăng Xuất</Text>
                 </TouchableOpacity>
 
@@ -101,7 +107,7 @@ function MenuLink({ icon, label, onPress }: any) {
                 <View style={styles.iconCircle}>{icon}</View>
                 <Text style={styles.menuLabel}>{label}</Text>
             </View>
-            <ChevronRight size={18} color="#4b5563" />
+            <ChevronRight size={18} color={Colors.textDim} />
         </TouchableOpacity>
     );
 }
@@ -109,7 +115,7 @@ function MenuLink({ icon, label, onPress }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -121,13 +127,13 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     settingsBtn: {
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(0,0,0,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -138,12 +144,12 @@ const styles = StyleSheet.create({
     },
     profileCard: {
         alignItems: 'center',
-        backgroundColor: '#111113',
+        backgroundColor: Colors.surface,
         borderRadius: 32,
         padding: 32,
         marginBottom: 32,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     avatarWrapper: {
         position: 'relative',
@@ -154,29 +160,29 @@ const styles = StyleSheet.create({
         height: 100,
         borderRadius: 50,
         borderWidth: 3,
-        borderColor: '#8b5cf6',
+        borderColor: Colors.primary,
     },
     editBadge: {
         position: 'absolute',
         bottom: 0,
         right: 0,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         width: 32,
         height: 32,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 3,
-        borderColor: '#111113',
+        borderColor: Colors.surface,
     },
     userName: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     userEmail: {
         fontSize: 14,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginTop: 4,
     },
     levelBadge: {
@@ -190,7 +196,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     levelText: {
-        color: '#facc15',
+        color: Colors.warning,
         fontSize: 12,
         fontWeight: 'bold',
     },
@@ -200,7 +206,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#4b5563',
+        color: Colors.textDim,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 16,
@@ -210,10 +216,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.surface,
         padding: 16,
         borderRadius: 20,
         marginBottom: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     menuLeft: {
         flexDirection: 'row',
@@ -224,12 +232,12 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(0,0,0,0.03)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     menuLabel: {
-        color: '#f3f4f6',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: '500',
     },
@@ -245,13 +253,13 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(239,68,68,0.1)',
     },
     logoutText: {
-        color: '#ef4444',
+        color: Colors.error,
         fontSize: 16,
         fontWeight: 'bold',
     },
     versionText: {
         textAlign: 'center',
-        color: '#374151',
+        color: Colors.textDim,
         fontSize: 12,
         marginTop: 32,
     }

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { X, CheckCircle2, Circle, Target, Flame, Trash2, Briefcase, Heart, BookOpen, User, Star, Coffee, Gamepad2, Wrench } from 'lucide-react-native';
 import { useCustomAlert } from './CustomAlertContext';
+import { Colors } from '../constants/theme';
 
 export default function ContextDetailModal({ visible, onClose, context, items, onDelete, onToggle, onDetail, onEdit }: any) {
     const { showAlert } = useCustomAlert();
@@ -97,12 +98,11 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     content: {
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
-        minHeight: '50%',
-        maxHeight: '80%',
+        maxHeight: '90%',
     },
     header: {
         flexDirection: 'row',
@@ -123,19 +123,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     title: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 20,
         fontWeight: 'bold',
     },
     sub: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 12,
     },
     actionBtnSmall: {
         width: 36,
         height: 36,
         borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     taskItemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.background,
         borderRadius: 20,
         marginBottom: 12,
         overflow: 'hidden',
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     taskTitle: {
-        color: '#f3f4f6',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: '500',
     },
@@ -180,17 +180,17 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     taskMetaText: {
-        color: '#60a5fa',
+        color: Colors.primary,
         fontSize: 11,
         fontWeight: '600',
     },
     taskTime: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 12,
         marginLeft: 4,
     },
     empty: {
-        color: '#4b5563',
+        color: Colors.textDim,
         textAlign: 'center',
         marginTop: 40,
     }

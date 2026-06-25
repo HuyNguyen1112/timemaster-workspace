@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Activi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrainCircuit, Mic, Send, Zap, Calendar, CheckCircle2 } from 'lucide-react-native';
 import { aiService } from '../../services/ai.service';
+import { Colors } from '../../constants/theme';
 
 export default function AiChatScreen() {
     const insets = useSafeAreaInsets();
@@ -59,31 +60,31 @@ export default function AiChatScreen() {
     const renderActionWidget = (action: string) => {
         let icon = < Zap size={14} color="#c084fc" />;
         let title = "System Action";
-        let color = "#8b5cf6";
+        let color = Colors.primary;
         let description = "The changes have been synced.";
 
         if (action === 'task_write') {
-            icon = <Calendar size={14} color="#60a5fa" />;
+            icon = <Calendar size={14} color={Colors.matrix.q2} />;
             title = "Schedule Updated";
-            color = "#3b82f6";
+            color = Colors.matrix.q2;
             description = "Your schedule has been updated successfully.";
         } else if (action === 'habit_write') {
-            icon = <CheckCircle2 size={14} color="#22c55e" />;
+            icon = <CheckCircle2 size={14} color={Colors.success} />;
             title = "Habit Recorded";
-            color = "#22c55e";
+            color = Colors.success;
             description = "Your progress has been logged to your habits.";
         } else if (action === 'data_query') {
             // For data queries, show a very subtle indicator or nothing
             return (
                 <View style={styles.queryIndicator}>
-                    <Zap size={10} color="#6b7280" />
+                    <Zap size={10} color={Colors.textDim} />
                     <Text style={styles.queryIndicatorText}>Dữ liệu thực tế từ hệ thống</Text>
                 </View>
             );
         } else if (action === 'ERROR') {
-            icon = <Zap size={14} color="#ef4444" />;
+            icon = <Zap size={14} color={Colors.error} />;
             title = "Action Failed";
-            color = "#ef4444";
+            color = Colors.error;
             description = "Something went wrong while executing the task.";
         }
 
@@ -111,7 +112,7 @@ export default function AiChatScreen() {
         >
             <View style={styles.header}>
                 <View style={[styles.avatar, loading && { backgroundColor: '#a855f7' }]}>
-                    <BrainCircuit color="#ffffff" size={20} />
+                    <BrainCircuit color={Colors.text} size={20} />
                     <View style={styles.onlineDot} />
                 </View>
                 <View>
@@ -137,7 +138,7 @@ export default function AiChatScreen() {
                     ) : (
                         <View key={msg.id} style={styles.aiMessageRow}>
                             <View style={styles.aiAvatarSmall}>
-                                <BrainCircuit size={16} color="#ffffff" />
+                                <BrainCircuit size={16} color={Colors.text} />
                             </View>
                             <View style={styles.aiContent}>
                                 <View style={[styles.aiBubble, msg.isError && styles.errorBubble]}>
@@ -151,11 +152,11 @@ export default function AiChatScreen() {
                 {loading && (
                     <View style={styles.aiMessageRow}>
                         <View style={styles.aiAvatarSmall}>
-                            <BrainCircuit size={16} color="#ffffff" />
+                            <BrainCircuit size={16} color={Colors.text} />
                         </View>
                         <View style={styles.aiContent}>
                             <View style={[styles.aiBubble, { width: 60, alignItems: 'center' }]}>
-                                <ActivityIndicator size="small" color="#8b5cf6" />
+                                <ActivityIndicator size="small" color={Colors.primary} />
                             </View>
                         </View>
                     </View>
@@ -185,7 +186,7 @@ export default function AiChatScreen() {
                         onPress={handleSend}
                         disabled={!input.trim() || loading}
                     >
-                        <Send size={18} color="#ffffff" />
+                        <Send size={18} color={Colors.text} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -196,7 +197,7 @@ export default function AiChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -204,14 +205,14 @@ const styles = StyleSheet.create({
         padding: 24,
         paddingTop: 48,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-        backgroundColor: '#0a0a0a',
+        borderBottomColor: Colors.border,
+        backgroundColor: Colors.surface,
     },
     avatar: {
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
@@ -223,17 +224,17 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 6,
-        backgroundColor: '#22c55e',
+        backgroundColor: Colors.success,
         borderWidth: 2,
         borderColor: '#000',
     },
     headerTitle: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: 'bold',
     },
     headerStatus: {
-        color: '#60a5fa',
+        color: Colors.matrix.q2,
         fontSize: 12,
     },
     chatScroll: {
@@ -244,14 +245,16 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     userBubble: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
         padding: 16,
         borderRadius: 20,
         borderTopRightRadius: 4,
         maxWidth: '85%',
     },
     userText: {
-        color: '#f3f4f6',
+        color: Colors.text,
         fontSize: 14,
     },
     aiMessageRow: {
@@ -264,7 +267,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 8,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: 4,
@@ -273,9 +276,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     aiBubble: {
-        backgroundColor: '#1a1a1e',
+        backgroundColor: Colors.surface,
         borderWidth: 1,
-        borderColor: 'rgba(168,85,247,0.2)',
+        borderColor: Colors.border,
         padding: 16,
         borderRadius: 20,
         borderTopLeftRadius: 4,
@@ -286,13 +289,14 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(239,68,68,0.05)',
     },
     aiText: {
-        color: '#e5e7eb',
+        color: Colors.text,
         fontSize: 14,
         lineHeight: 22,
     },
     interactiveWidget: {
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: Colors.background,
         borderWidth: 1,
+        borderColor: Colors.border,
         borderRadius: 16,
         padding: 12,
     },
@@ -313,11 +317,11 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     widgetTime: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 10,
     },
     widgetInfo: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 12,
     },
     tagIconWrapper: {
@@ -335,15 +339,15 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     queryIndicatorText: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 10,
         fontStyle: 'italic',
     },
     inputContainer: {
         padding: 24,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: Colors.surface,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
+        borderTopColor: Colors.border,
     },
     chipsScroll: {
         gap: 8,
@@ -351,31 +355,31 @@ const styles = StyleSheet.create({
         paddingRight: 16,
     },
     chip: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 16,
         marginRight: 8,
     },
     chipText: {
-        color: '#d1d5db',
+        color: Colors.text,
         fontSize: 12,
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1a1a1e',
+        backgroundColor: Colors.background,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
         borderRadius: 24,
         padding: 4,
         paddingLeft: 16,
     },
     input: {
         flex: 1,
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 14,
     },
     micButton: {
@@ -388,7 +392,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
     },

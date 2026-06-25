@@ -91,4 +91,26 @@ public class TaskController {
         taskService.deleteTask(taskId, userId);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * API: Lấy danh sách công việc quá hạn
+     * GET /api/tasks/overdue
+     */
+    @GetMapping("/overdue")
+    public ResponseEntity<List<TaskResponse>> getOverdueTasks() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        List<TaskResponse> tasks = taskService.getOverdueTasks(userId);
+        return ResponseEntity.ok(tasks);
+    }
+
+    /**
+     * API: Hủy công việc
+     * PUT /api/tasks/{taskId}/cancel
+     */
+    @PutMapping("/{taskId}/cancel")
+    public ResponseEntity<TaskResponse> cancelTask(@PathVariable Long taskId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        TaskResponse cancelledTask = taskService.cancelTask(taskId, userId);
+        return ResponseEntity.ok(cancelledTask);
+    }
 }

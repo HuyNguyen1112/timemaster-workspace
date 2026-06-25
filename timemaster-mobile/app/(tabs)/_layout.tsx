@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Colors } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, CalendarDays, Timer, MessageSquare, BarChart3, BrainCircuit, Flame, User } from 'lucide-react-native';
 
@@ -38,7 +39,7 @@ function CustomBottomNav({ state, descriptors, navigation }: any) {
           return (
             <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.8} style={styles.centralButtonWrapper}>
               <View style={[styles.centralButton, isFocused && styles.centralButtonActive]}>
-                <BrainCircuit size={28} color={isFocused ? '#ffffff' : '#9ca3af'} />
+                <BrainCircuit size={28} color={isFocused ? Colors.surface : Colors.textDim} />
               </View>
             </TouchableOpacity>
           );
@@ -46,7 +47,7 @@ function CustomBottomNav({ state, descriptors, navigation }: any) {
 
         return (
           <TouchableOpacity key={route.key} onPress={onPress} style={styles.navItem}>
-            <Icon size={24} color={isFocused ? '#60a5fa' : '#6b7280'} />
+            <Icon size={24} color={isFocused ? Colors.primary : Colors.textDim} />
             {isFocused && <View style={styles.activeDot} />}
           </TouchableOpacity>
         );
@@ -77,9 +78,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(10, 10, 10, 0.9)',
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: Colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -93,19 +94,19 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: '#1a1a1e',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowColor: Colors.text,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: -5 },
   },
   centralButtonActive: {
-    backgroundColor: '#8b5cf6',
+    backgroundColor: Colors.primary,
   },
   navItem: {
     padding: 8,
@@ -117,6 +118,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#60a5fa',
+    backgroundColor: Colors.primary,
   }
 });

@@ -9,6 +9,7 @@ import { healthService } from '../../services/health.service';
 import { notificationService } from '../../services/notification.service';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { Colors } from '../../constants/theme';
 
 export default function HabitsScreen() {
     const { showAlert } = useCustomAlert();
@@ -123,19 +124,19 @@ export default function HabitsScreen() {
                 {/* Streak Stats */}
                 <View style={styles.statsRow}>
                     <View style={styles.statBox}>
-                        <Zap size={20} color="#facc15" />
+                        <Zap size={20} color={Colors.warning} />
                         <Text style={styles.statValue}>0</Text>
                         <Text style={styles.statLabel}>Best Streak</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Target size={20} color="#22c55e" />
+                        <Target size={20} color={Colors.success} />
                         <Text style={styles.statValue}>0%</Text>
                         <Text style={styles.statLabel}>Success Rate</Text>
                     </View>
                 </View>
 
                 {loading ? (
-                    <ActivityIndicator color="#8b5cf6" style={{ marginTop: 40 }} />
+                    <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
                 ) : habits.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Text style={styles.emptyText}>No active habits. Time to start one!</Text>
@@ -160,7 +161,7 @@ export default function HabitsScreen() {
                                     <Text style={styles.sectionTitle}>{group.label}</Text>
                                     {group.id === 'ALL_DAY' && (
                                         <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addBtnIcon}>
-                                            <Plus size={20} color="#ffffff" />
+                                            <Plus size={20} color={Colors.surface} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -170,15 +171,15 @@ export default function HabitsScreen() {
                                         style={styles.habitCard}
                                         onPress={() => router.push(`/habit/${habit.id}`)}
                                     >
-                                        <View style={[styles.iconBox, { backgroundColor: (habit.colorCode || '#8b5cf6') + '15' }]}>
+                                        <View style={[styles.iconBox, { backgroundColor: (habit.colorCode || Colors.primary) + '15' }]}>
                                             {habit.icon && iconMap[habit.icon] 
-                                                ? React.cloneElement(iconMap[habit.icon] as React.ReactElement, { color: habit.colorCode || '#8b5cf6' } as any) 
-                                                : <Target color={habit.colorCode || '#8b5cf6'} />}
+                                                ? React.cloneElement(iconMap[habit.icon] as React.ReactElement, { color: habit.colorCode || Colors.primary } as any) 
+                                                : <Target color={habit.colorCode || Colors.primary} />}
                                         </View>
                                         <View style={styles.habitInfo}>
                                             <View style={styles.titleRow}>
                                                 <Text style={styles.habitTitle}>{habit.name}</Text>
-                                                {habit.isSystemHabit && <Lock size={12} color="#9ca3af" style={{ marginLeft: 4 }} />}
+                                                {habit.isSystemHabit && <Lock size={12} color={Colors.textDim} style={{ marginLeft: 4 }} />}
                                                 {habit.selectedDays && (
                                                     <View style={styles.daysBadge}>
                                                         <Text style={styles.daysBadgeText}>Custom Days</Text>
@@ -198,7 +199,7 @@ export default function HabitsScreen() {
                                                         styles.progressFill, 
                                                         { 
                                                             width: `${Math.min(100, ((habit.progressToday || 0) / (habit.dailyGoal || 1)) * 100)}%`,
-                                                            backgroundColor: habit.colorCode || '#8b5cf6' 
+                                                            backgroundColor: habit.colorCode || Colors.primary 
                                                         }
                                                     ]} />
                                                 </View>
@@ -207,7 +208,7 @@ export default function HabitsScreen() {
                                                 )}
                                             </View>
                                         </View>
-                                        <ChevronRight size={20} color="#4b5563" />
+                                        <ChevronRight size={20} color={Colors.textDim} />
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -228,7 +229,7 @@ export default function HabitsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     scrollContent: {
         paddingHorizontal: 24,
@@ -253,22 +254,22 @@ const styles = StyleSheet.create({
     },
     statBox: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: Colors.surface,
         borderRadius: 20,
         padding: 16,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(168,85,247,0.1)',
+        borderColor: Colors.border,
     },
     statValue: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
         marginTop: 8,
     },
     statLabel: {
         fontSize: 12,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginTop: 2,
     },
     sectionHeader: {
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#9ca3af',
+        color: Colors.textDim,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
@@ -288,19 +289,19 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 10,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
     },
     habitCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: Colors.surface,
         borderRadius: 24,
         padding: 16,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     iconBox: {
         width: 52,
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     habitTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     titleRow: {
         flexDirection: 'row',
@@ -330,8 +331,8 @@ const styles = StyleSheet.create({
     syncTag: {
         fontSize: 8,
         fontWeight: 'bold',
-        color: '#22c55e',
-        backgroundColor: 'rgba(34,197,94,0.1)',
+        color: Colors.success,
+        backgroundColor: Colors.success + '20',
         paddingHorizontal: 4,
         paddingVertical: 2,
         borderRadius: 4,
@@ -339,13 +340,13 @@ const styles = StyleSheet.create({
     },
     habitSub: {
         fontSize: 12,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginTop: 2,
         marginBottom: 10,
     },
     progressBar: {
         height: 6,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.border,
         borderRadius: 3,
         overflow: 'hidden',
     },
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emptyText: {
-        color: '#4b5563',
+        color: Colors.textDim,
         fontStyle: 'italic',
         textAlign: 'center',
     },
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     daysBadgeText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 10,
         fontWeight: 'bold',
         textTransform: 'uppercase',

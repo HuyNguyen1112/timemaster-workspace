@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { X, Calendar, Clock, Layout, Edit2, Trash2, CheckCircle2, Circle, AlignLeft, Tag, AlertTriangle, Play, Wrench } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { Colors } from '../constants/theme';
+import { focusTargetService } from '../services/pomodoro.service';
 
 interface TaskDetailModalProps {
     visible: boolean;
@@ -33,7 +35,7 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
         });
     };
 
-    const matrixColors: any = { Q1: '#f97316', Q2: '#3b82f6', Q3: '#6b7280', Q4: '#22c55e' };
+    const matrixColors: any = { Q1: Colors.matrix.q1, Q2: Colors.matrix.q2, Q3: Colors.matrix.q3, Q4: Colors.matrix.q4 };
     const matrixLabels: any = { 
         Q1: 'Urgent & Important', 
         Q2: 'Important, Not Urgent', 
@@ -58,18 +60,18 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
     return (
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.overlay}>
-                <View style={[styles.content, { borderLeftColor: matrixColors[task.matrix] || '#8b5cf6', borderLeftWidth: 8 }]}>
+                <View style={[styles.content, { borderLeftColor: matrixColors[task.matrix] || Colors.primary, borderLeftWidth: 8 }]}>
                     <View style={styles.header}>
                         <View style={{ flex: 1 }} />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                             <TouchableOpacity onPress={() => { onEdit(task); onClose(); }} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                                <Wrench size={18} color="#f59e0b" />
+                                <Wrench size={18} color={Colors.warning} />
                             </TouchableOpacity>
                             <TouchableOpacity onPress={handleDelete} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                                <Trash2 size={18} color="#ef4444" />
+                                <Trash2 size={18} color={Colors.error} />
                             </TouchableOpacity>
                             <TouchableOpacity onPress={onClose} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                                <X size={20} color="#9ca3af" />
+                                <X size={20} color={Colors.textDim} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -78,11 +80,11 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                         <Text style={[styles.title, task.done && styles.titleDone]}>{task.title}</Text>
                         
                         {task.isOverloaded && (
-                            <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ef4444', flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                                <AlertTriangle size={20} color="#ef4444" />
+                            <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.error, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                                <AlertTriangle size={20} color={Colors.error} />
                                 <View style={{ marginLeft: 12, flex: 1 }}>
-                                    <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14 }}>Cảnh báo Quá tải</Text>
-                                    <Text style={{ color: '#fca5a5', fontSize: 12, marginTop: 4 }}>
+                                    <Text style={{ color: Colors.error, fontWeight: 'bold', fontSize: 14 }}>Cảnh báo Quá tải</Text>
+                                    <Text style={{ color: Colors.error, fontSize: 12, marginTop: 4 }}>
                                         Hệ thống không thể sắp xếp đủ thời lượng {task.remainingDuration} phút cho công việc này trước Deadline.
                                     </Text>
                                 </View>
@@ -92,7 +94,7 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                         {task.description && task.description.trim() !== '' && (
                             <View style={styles.descriptionSection}>
                                 <View style={styles.descriptionHeader}>
-                                    <AlignLeft size={16} color="#8b5cf6" />
+                                    <AlignLeft size={16} color={Colors.primary} />
                                     <Text style={styles.descriptionLabel}>Mô tả</Text>
                                 </View>
                                 <Text style={styles.descriptionText}>{task.description}</Text>
@@ -101,20 +103,20 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
 
                         <View style={styles.infoGrid}>
                             <View style={styles.infoRow}>
-                                <Calendar size={16} color="#8b5cf6" />
+                                <Calendar size={16} color={Colors.primary} />
                                 <Text style={styles.infoText}>{task.date || 'Today'}</Text>
                             </View>
                             <View style={styles.infoRow}>
-                                <Clock size={16} color="#8b5cf6" />
+                                <Clock size={16} color={Colors.primary} />
                                 <Text style={styles.infoText}>{task.time || 'Anytime'}</Text>
                             </View>
                             <View style={styles.infoRow}>
-                                <Layout size={16} color="#8b5cf6" />
+                                <Layout size={16} color={Colors.primary} />
                                 <Text style={styles.infoText}>{matrixLabels[task.matrix]}</Text>
                             </View>
                             {task.context && (
                                 <View style={styles.infoRow}>
-                                    <Tag size={16} color="#a855f7" />
+                                    <Tag size={16} color={Colors.primary} />
                                     <View style={styles.catTag}>
                                         <Text style={styles.catTagText}>{task.context}</Text>
                                     </View>
@@ -124,50 +126,47 @@ export default function TaskDetailModal({ visible, onClose, task, onEdit, onDele
                     </ScrollView>
 
                     {/* Progress Section */}
-                    {!task.isFixed && (
-                        <View style={styles.progressContainer}>
-                            <View style={styles.progressHeader}>
-                                <Text style={styles.progressLabel}>Task Overall Progress</Text>
-                                <Text style={styles.progressPercent}>{percent}%</Text>
-                            </View>
-                            
-                            <View style={styles.progressBarBg}>
-                                <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
-                            </View>
-
-                            <View style={styles.progressStats}>
-                                <Text style={styles.statText}>
-                                    Focused: <Text style={{ color: '#10b981', fontWeight: 'bold' }}>{formatMinToHours(focusedMins)}</Text>
-                                </Text>
-                                <Text style={styles.statText}>
-                                    Total Est: <Text style={{ color: '#ffffff' }}>{formatMinToHours(totalEstimatedMins)}</Text>
-                                </Text>
-                            </View>
-                            
-                            {remainingMins > 0 && (
-                                <Text style={styles.remainingText}>
-                                    {formatMinToHours(remainingMins)} left to complete this task
-                                </Text>
-                            )}
-                            {remainingMins <= 0 && (
-                                <Text style={[styles.remainingText, { color: '#10b981' }]}>
-                                    Task completed!
-                                </Text>
-                            )}
+                    {/* Progress Section */}
+                    <View style={styles.progressContainer}>
+                        <View style={styles.progressHeader}>
+                            <Text style={styles.progressLabel}>Task Overall Progress</Text>
+                            <Text style={styles.progressPercent}>{percent}%</Text>
                         </View>
-                    )}
+                        
+                        <View style={styles.progressBarBg}>
+                            <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+                        </View>
+
+                        <View style={styles.progressStats}>
+                            <Text style={styles.statText}>
+                                Focused: <Text style={{ color: Colors.success, fontWeight: 'bold' }}>{formatMinToHours(focusedMins)}</Text>
+                            </Text>
+                            <Text style={styles.statText}>
+                                Total Est: <Text style={{ color: Colors.text }}>{formatMinToHours(totalEstimatedMins)}</Text>
+                            </Text>
+                        </View>
+                        
+                        {remainingMins > 0 && (
+                            <Text style={styles.remainingText}>
+                                {formatMinToHours(remainingMins)} left to complete this task
+                            </Text>
+                        )}
+                        {remainingMins <= 0 && (
+                            <Text style={[styles.remainingText, { color: Colors.success }]}>
+                                Task completed!
+                            </Text>
+                        )}
+                    </View>
 
                     <TouchableOpacity 
                         style={styles.startFocusBtn} 
                         onPress={() => {
                             onClose();
-                            router.push({
-                                pathname: '/(tabs)/focus',
-                                params: { taskId: task.id, taskTitle: task.title }
-                            });
+                            focusTargetService.setTarget({ type: 'TASK', id: task.id, title: task.title });
+                            router.navigate('/(tabs)/focus');
                         }}
                     >
-                        <Play size={18} color="#8b5cf6" fill="#8b5cf6" />
+                        <Play size={18} color={Colors.primary} fill={Colors.primary} />
                         <Text style={styles.startFocusBtnText}>Bắt đầu Focus</Text>
                     </TouchableOpacity>
                 </View>
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     content: {
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         borderRadius: 24,
         padding: 24,
         paddingBottom: 20,
@@ -209,7 +208,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     title: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 16,
@@ -233,14 +232,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     descriptionLabel: {
-        color: '#8b5cf6',
+        color: Colors.primary,
         fontSize: 12,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     descriptionText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 15,
         lineHeight: 22,
         flex: 1,
@@ -256,7 +255,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     infoText: {
-        color: '#d1d5db',
+        color: Colors.text,
         fontSize: 16,
     },
     catTag: {
@@ -268,17 +267,17 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(168,85,247,0.2)',
     },
     catTagText: {
-        color: '#c084fc',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: 'bold',
     },
     progressContainer: {
         marginTop: 16,
-        backgroundColor: '#111827',
+        backgroundColor: Colors.surface,
         borderRadius: 12,
         padding: 16,
         borderWidth: 1,
-        borderColor: '#374151'
+        borderColor: Colors.textDim
     },
     progressHeader: {
         flexDirection: 'row',
@@ -286,25 +285,25 @@ const styles = StyleSheet.create({
         marginBottom: 10
     },
     progressLabel: {
-        color: '#d1d5db',
+        color: Colors.text,
         fontSize: 14,
         fontWeight: '600'
     },
     progressPercent: {
-        color: '#3b82f6',
+        color: Colors.primary,
         fontWeight: 'bold',
         fontSize: 14
     },
     progressBarBg: {
         height: 10,
-        backgroundColor: '#374151',
+        backgroundColor: Colors.textDim,
         borderRadius: 5,
         overflow: 'hidden',
         marginBottom: 12
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: '#3b82f6',
+        backgroundColor: Colors.primary,
         borderRadius: 5
     },
     progressStats: {
@@ -313,12 +312,12 @@ const styles = StyleSheet.create({
         marginBottom: 8
     },
     statText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 13
     },
     remainingText: {
         textAlign: 'center',
-        color: '#f59e0b',
+        color: Colors.warning,
         fontSize: 12,
         marginTop: 4,
         fontStyle: 'italic'
@@ -336,7 +335,7 @@ const styles = StyleSheet.create({
         borderColor: '#8b5cf6' + '40'
     },
     startFocusBtnText: {
-        color: '#8b5cf6',
+        color: Colors.primary,
         fontWeight: '600',
         fontSize: 15
     }

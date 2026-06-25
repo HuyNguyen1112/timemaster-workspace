@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { BrainCircuit, Lock, Mail, ArrowRight } from 'lucide-react-native';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { Colors } from '../../constants/theme';
 
 export default function LoginScreen() {
     const { showAlert } = useCustomAlert();
@@ -43,9 +44,7 @@ export default function LoginScreen() {
         >
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <View style={styles.logoContainer}>
-                        <BrainCircuit size={40} color="#ffffff" />
-                    </View>
+                        <BrainCircuit size={40} color={Colors.text} />
                     <Text style={styles.title}>TimeMaster AI</Text>
                     <Text style={styles.subtitle}>Your personal AI productivity mentor</Text>
                 </View>
@@ -54,11 +53,11 @@ export default function LoginScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email</Text>
                         <View style={styles.inputWrapper}>
-                            <Mail size={20} color="#6b7280" style={styles.inputIcon} />
+                            <Mail size={20} color={Colors.textDim} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="example@email.com"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={Colors.textDim}
                                 value={email}
                                 onChangeText={setEmail}
                                 autoCapitalize="none"
@@ -70,11 +69,11 @@ export default function LoginScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Password</Text>
                         <View style={styles.inputWrapper}>
-                            <Lock size={20} color="#6b7280" style={styles.inputIcon} />
+                            <Lock size={20} color={Colors.textDim} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="••••••••"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={Colors.textDim}
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry
@@ -90,7 +89,7 @@ export default function LoginScreen() {
                         <Text style={styles.loginButtonText}>
                             {loading ? 'Authenticating...' : 'Đăng Nhập'}
                         </Text>
-                        {!loading && <ArrowRight size={20} color="#ffffff" />}
+                        {!loading && <ArrowRight size={20} color={Colors.text} />}
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
@@ -108,7 +107,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -123,12 +122,12 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 24,
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 16,
         elevation: 10,
-        shadowColor: '#8b5cf6',
+        shadowColor: Colors.primary,
         shadowOpacity: 0.3,
         shadowRadius: 15,
         shadowOffset: { width: 0, height: 8 },
@@ -136,12 +135,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#9ca3af',
+        color: Colors.textDim,
         textAlign: 'center',
     },
     form: {
@@ -151,7 +150,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     label: {
-        color: '#d1d5db',
+        color: Colors.text,
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 4,
@@ -171,11 +170,11 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
     },
     loginButton: {
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         height: 56,
         borderRadius: 16,
         flexDirection: 'row',
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
         gap: 12,
         marginTop: 12,
         elevation: 8,
-        shadowColor: '#8b5cf6',
+        shadowColor: Colors.primary,
         shadowOpacity: 0.4,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -193,7 +192,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     loginButtonText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 18,
         fontWeight: 'bold',
     },
@@ -207,7 +206,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     linkText: {
-        color: '#8b5cf6',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: 'bold',
     }

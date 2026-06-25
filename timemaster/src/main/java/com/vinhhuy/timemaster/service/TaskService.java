@@ -23,6 +23,12 @@ public interface TaskService {
     // Xóa công việc
     void deleteTask(Long taskId, Long userId);
 
+    // Hủy công việc (chuyển sang CANCELLED)
+    TaskResponse cancelTask(Long taskId, Long userId);
+
+    // Lấy công việc quá hạn
+    List<TaskResponse> getOverdueTasks(Long userId);
+
     // Cập nhật công việc
     TaskResponse updateTask(Long taskId, Long userId, TaskRequest request);
 }

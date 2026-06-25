@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, User, ChevronLeft } from 'lucide-react-native';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { Colors } from '../../constants/theme';
 
 export default function SignUpScreen() {
     const { showAlert } = useCustomAlert();
@@ -37,7 +38,7 @@ export default function SignUpScreen() {
     return (
         <View style={styles.container}>
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                <ChevronLeft size={24} color="#ffffff" />
+                <ChevronLeft size={24} color={Colors.text} />
             </TouchableOpacity>
 
             <View style={styles.header}>
@@ -49,11 +50,11 @@ export default function SignUpScreen() {
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Full Name</Text>
                     <View style={styles.inputContainer}>
-                        <User size={20} color="#9ca3af" />
+                        <User size={20} color={Colors.textDim} />
                         <TextInput
                             style={styles.input}
                             placeholder="John Doe"
-                            placeholderTextColor="#6b7280"
+                            placeholderTextColor={Colors.textDim}
                             value={fullName}
                             onChangeText={setFullName}
                         />
@@ -63,11 +64,11 @@ export default function SignUpScreen() {
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Email Address</Text>
                     <View style={styles.inputContainer}>
-                        <Mail size={20} color="#9ca3af" />
+                        <Mail size={20} color={Colors.textDim} />
                         <TextInput
                             style={styles.input}
                             placeholder="example@gmail.com"
-                            placeholderTextColor="#6b7280"
+                            placeholderTextColor={Colors.textDim}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             value={email}
@@ -79,11 +80,11 @@ export default function SignUpScreen() {
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Password</Text>
                     <View style={styles.inputContainer}>
-                        <Lock size={20} color="#9ca3af" />
+                        <Lock size={20} color={Colors.textDim} />
                         <TextInput
                             style={styles.input}
                             placeholder="••••••••"
-                            placeholderTextColor="#6b7280"
+                            placeholderTextColor={Colors.textDim}
                             secureTextEntry
                             value={password}
                             onChangeText={setPassword}
@@ -97,7 +98,7 @@ export default function SignUpScreen() {
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="#ffffff" />
+                        <ActivityIndicator color={Colors.text} />
                     ) : (
                         <Text style={styles.signUpBtnText}>Sign Up</Text>
                     )}
@@ -117,7 +118,7 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0f0a1e',
+        backgroundColor: Colors.background,
         padding: 24,
     },
     backBtn: {
@@ -134,13 +135,13 @@ const styles = StyleSheet.create({
         marginBottom: 40,
     },
     title: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 32,
         fontWeight: 'bold',
         marginBottom: 8,
     },
     subtitle: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 16,
     },
     form: {
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     label: {
-        color: '#d1d5db',
+        color: Colors.text,
         fontSize: 14,
         fontWeight: '500',
     },
@@ -166,12 +167,12 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         marginLeft: 12,
     },
     signUpBtn: {
-        backgroundColor: '#8b5cf6',
+        backgroundColor: Colors.primary,
         borderRadius: 16,
         height: 56,
         justifyContent: 'center',
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     signUpBtnText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: 'bold',
     },
@@ -189,11 +190,11 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     footerText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 14,
     },
     link: {
-        color: '#8b5cf6',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: 'bold',
     },

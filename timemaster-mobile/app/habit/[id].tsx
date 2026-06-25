@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Flame, Droplets, Book, Dumbbell, Code, Brain, Music, Zap, Target, Award, Calendar, Trash2, Edit3, CheckCircle2, Plus } from 'lucide-react-native';
 import { habitService, Habit } from '../../services/habit.service';
 import { healthService } from '../../services/health.service';
+import { focusTargetService } from '../../services/pomodoro.service';
 import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCustomAlert } from '../../components/CustomAlertContext';
 import { notificationService } from '../../services/notification.service';
 import EditHabitModal from '../../components/EditHabitModal';
+import { Colors } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -127,12 +129,12 @@ export default function HabitDetailScreen() {
     if (loading || !habit) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#8b5cf6" />
+                <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );
     }
 
-    const themeColor = habit.colorCode || '#8b5cf6';
+    const themeColor = habit.colorCode || Colors.primary;
 
     // Heatmap Logic: Last 30 days
     const renderHeatmap = () => {
@@ -144,7 +146,7 @@ export default function HabitDetailScreen() {
             const dateStr = date.toISOString().split('T')[0];
             const log = habit.recentLogs?.find(l => l.logDate === dateStr);
             
-            let color = 'rgba(255,255,255,0.05)';
+            let color = 'rgba(0,0,0,0.05)';
             if (log) {
                 const percentage = (log.progressValue / (habit.dailyGoal || 1)) * 100;
                 
@@ -177,22 +179,22 @@ export default function HabitDetailScreen() {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={[themeColor + '30', '#130f1e']}
+                colors={[themeColor + '30', Colors.background]}
                 style={styles.gradientBg}
             />
             
             {/* Header */}
                 <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft color="#ffffff" size={28} />
+                        <ChevronLeft color={Colors.text} size={28} />
                     </TouchableOpacity>
                     <View style={styles.headerActions}>
                         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowEditModal(true)}>
-                            <Edit3 color="#ffffff" size={20} />
+                            <Edit3 color={Colors.text} size={20} />
                         </TouchableOpacity>
                         {!habit.isSystemHabit && (
                             <TouchableOpacity onPress={handleDelete} style={[styles.actionBtn, { marginLeft: 12 }]}>
-                                <Trash2 color="#ef4444" size={20} />
+                                <Trash2 color={Colors.error} size={20} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -234,7 +236,7 @@ export default function HabitDetailScreen() {
                 {/* Stats Grid */}
                 <View style={styles.statsGrid}>
                     <View style={styles.statBox}>
-                        <Zap size={20} color="#facc15" />
+                        <Zap size={20} color={Colors.warning} />
                         <Text style={styles.statTitle}>Daily Progress</Text>
                         <Text style={styles.statValue}>
                             {habit.progressToday || 0} / {habit.dailyGoal} {habit.unit === 'minutes' ? 'phút' : 'lần'}
@@ -257,7 +259,7 @@ export default function HabitDetailScreen() {
                 {/* Heatmap Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Calendar size={18} color="#9ca3af" />
+                        <Calendar size={18} color={Colors.textDim} />
                         <Text style={styles.sectionTitle}>Consistency (Last 30 Days)</Text>
                     </View>
                     {renderHeatmap()}
@@ -273,16 +275,22 @@ export default function HabitDetailScreen() {
             {/* Bottom Action */}
             <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                 {habit.verificationSource !== 'NONE' ? (
-                    <View style={[styles.checkInBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
-                        <Calendar color="#22c55e" size={20} />
-                        <Text style={[styles.checkInText, { color: '#9ca3af' }]}>Automated Sync Active</Text>
+                    <View style={[styles.checkInBtn, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border }]}>
+                        <Calendar color={Colors.success} size={20} />
+                        <Text style={[styles.checkInText, { color: Colors.textDim }]}>Automated Sync Active</Text>
                     </View>
                 ) : (
                     <View style={styles.actionBar}>
                         {isTimeUnit(habit.unit) ? (
                             <TouchableOpacity 
                                 style={[styles.checkInBtn, { flex: 1, backgroundColor: themeColor }]}
-                                onPress={() => router.push({ pathname: '/focus', params: { habitId: habit.id, habitTitle: habit.name } })}
+                                onPress={() => {
+                                    focusTargetService.setTarget({ type: 'HABIT', id: habit.id, title: habit.name });
+                                    router.back();
+                                    setTimeout(() => {
+                                        router.navigate('/(tabs)/focus');
+                                    }, 100);
+                                }}
                             >
                                 <Zap color="#ffffff" size={24} />
                                 <Text style={styles.checkInText}>Start Focus</Text>
@@ -299,7 +307,7 @@ export default function HabitDetailScreen() {
                             <TouchableOpacity 
                                 style={[
                                     styles.checkInBtn, 
-                                    { flex: 1, backgroundColor: habit.completedToday ? '#22c55e' : themeColor },
+                                    { flex: 1, backgroundColor: habit.completedToday ? Colors.success : themeColor },
                                 ]}
                                 onPress={() => handleCheckIn()}
                                 disabled={isCheckingIn || habit.completedToday}
@@ -331,7 +339,7 @@ export default function HabitDetailScreen() {
                                 value={progressInput}
                                 onChangeText={(val) => setProgressInput(val.replace(/[^0-9]/g, ''))}
                                 placeholder="0"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={Colors.textDim}
                                 keyboardType="numeric"
                                 autoFocus
                             />
@@ -355,7 +363,7 @@ export default function HabitDetailScreen() {
                             onPress={() => handleCheckIn(Number(progressInput), true)}
                             disabled={isCheckingIn || !progressInput}
                         >
-                            {isCheckingIn ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Add to Today's Progress</Text>}
+                            {isCheckingIn ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.submitBtnText}>Add to Today's Progress</Text>}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -376,7 +384,7 @@ export default function HabitDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     gradientBg: {
         position: 'absolute',
@@ -387,7 +395,7 @@ const styles = StyleSheet.create({
     },
     loadingContainer: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -402,7 +410,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(0,0,0,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -413,7 +421,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(0,0,0,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -437,12 +445,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
         textAlign: 'center',
     },
     description: {
         fontSize: 16,
-        color: '#9ca3af',
+        color: Colors.textDim,
         textAlign: 'center',
         marginTop: 8,
         paddingHorizontal: 20,
@@ -452,9 +460,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 24,
         elevation: 10,
-        shadowColor: '#000',
+        shadowColor: Colors.text,
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.1,
         shadowRadius: 20,
     },
     streakGradient: {
@@ -500,29 +508,29 @@ const styles = StyleSheet.create({
     },
     statBox: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.surface,
         borderRadius: 24,
         padding: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     statTitle: {
         fontSize: 12,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginTop: 12,
     },
     statValue: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
         marginTop: 4,
     },
     section: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: Colors.surface,
         borderRadius: 32,
         padding: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -532,7 +540,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginLeft: 8,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -559,11 +567,11 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(0,0,0,0.05)',
     },
     legendText: {
         fontSize: 10,
-        color: '#4b5563',
+        color: Colors.textDim,
     },
     bottomBar: {
         position: 'absolute',
@@ -572,9 +580,9 @@ const styles = StyleSheet.create({
         right: 0,
         paddingHorizontal: 24,
         paddingTop: 20,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
+        borderTopColor: Colors.border,
     },
     checkInBtn: {
         height: 64,
@@ -582,11 +590,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
+        shadowColor: Colors.text,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.1,
         shadowRadius: 10,
-        elevation: 8,
+        elevation: 4,
     },
     checkInText: {
         color: '#ffffff',
@@ -603,28 +611,28 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.surface,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.95)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
         zIndex: 1000,
     },
     modalContent: {
-        backgroundColor: '#1c1c1e',
+        backgroundColor: Colors.surface,
         borderRadius: 32,
         padding: 32,
         width: '100%',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -633,16 +641,16 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     modalTitle: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 20,
         fontWeight: 'bold',
     },
     closeText: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 16,
     },
     modalSubtitle: {
-        color: '#9ca3af',
+        color: Colors.textDim,
         fontSize: 14,
         marginBottom: 32,
         textAlign: 'center',
@@ -651,7 +659,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'baseline',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderRadius: 24,
         padding: 40,
         marginBottom: 32,
@@ -659,12 +667,12 @@ const styles = StyleSheet.create({
     progressInput: {
         fontSize: 72,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
         textAlign: 'center',
     },
     unitText: {
         fontSize: 20,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginLeft: 12,
         fontWeight: '600',
     },
@@ -677,15 +685,15 @@ const styles = StyleSheet.create({
     quickAddBtn: {
         width: 60,
         height: 60,
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: Colors.background,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Colors.border,
     },
     quickAddText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 16,
         fontWeight: 'bold',
     },
@@ -695,12 +703,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 4,
-        shadowColor: '#000',
-        shadowOpacity: 0.3,
+        shadowColor: Colors.text,
+        shadowOpacity: 0.1,
         shadowRadius: 10,
     },
     submitBtnText: {
-        color: '#ffffff',
+        color: Colors.text,
         fontSize: 18,
         fontWeight: 'bold',
     }

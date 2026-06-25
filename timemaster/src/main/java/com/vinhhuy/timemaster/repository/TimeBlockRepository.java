@@ -28,6 +28,10 @@ public interface TimeBlockRepository extends JpaRepository<TimeBlock, Long> {
     @Query("DELETE FROM TimeBlock tb WHERE tb.task.id = :taskId AND tb.startTime > :now AND (tb.isLocked = false OR tb.isLocked IS NULL)")
     void deleteFutureUnlockedByTaskId(@Param("taskId") Long taskId, @Param("now") LocalDateTime now);
     
+    @Modifying
+    @Query("DELETE FROM TimeBlock tb WHERE tb.task.id = :taskId AND tb.startTime > :now")
+    void deleteFutureByTaskId(@Param("taskId") Long taskId, @Param("now") LocalDateTime now);
+    
     @Query("SELECT tb FROM TimeBlock tb JOIN FETCH tb.task t LEFT JOIN FETCH t.context WHERE t.user.id = :userId AND tb.startTime >= :start AND tb.startTime < :end ORDER BY tb.startTime")
     List<TimeBlock> findByUserIdAndDateRange(@Param("userId") Long userId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 

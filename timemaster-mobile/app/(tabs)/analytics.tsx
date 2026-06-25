@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native
 import { Flame, Zap } from 'lucide-react-native';
 import { pomodoroService, PomodoroDashboardResponse } from '../../services/pomodoro.service';
 import { useFocusEffect } from 'expo-router';
+import { Colors } from '../../constants/theme';
 
 export default function AnalyticsScreen() {
     const [dashboard, setDashboard] = useState<PomodoroDashboardResponse | null>(null);
@@ -29,13 +30,13 @@ export default function AnalyticsScreen() {
         setRefreshing(false);
     };
 
-    const maxFocus = dashboard?.focusTimeLast7Days?.reduce((max, d) => Math.max(max, d.focusMinutes), 0) || 1;
+    const maxFocus = dashboard?.focusTimeLast7Days?.reduce((max, d) => Math.max(max, d.minutes), 0) || 1;
 
     return (
         <ScrollView 
             style={styles.container} 
             contentContainerStyle={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8b5cf6" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         >
             <View style={styles.header}>
                 <Text style={styles.title}>Your Progress</Text>
@@ -44,7 +45,7 @@ export default function AnalyticsScreen() {
 
             <View style={styles.kpiContainer}>
                 <View style={[styles.kpiCard, styles.orangeBorder]}>
-                    <Flame size={24} color="#f97316" style={styles.icon} />
+                    <Flame size={24} color={Colors.matrix.q1} style={styles.icon} />
                     <View>
                         <View style={styles.kpiValueRow}>
                             <Text style={styles.kpiValue}>{dashboard?.currentStreak || 0}</Text>
@@ -55,7 +56,7 @@ export default function AnalyticsScreen() {
                 </View>
 
                 <View style={[styles.kpiCard, styles.blueBorder]}>
-                    <Zap size={24} color="#60a5fa" style={styles.icon} />
+                    <Zap size={24} color={Colors.matrix.q2} style={styles.icon} />
                     <View>
                         <Text style={styles.kpiValue}>{dashboard?.totalSessionsCompleted || 0}</Text>
                         <Text style={styles.kpiLabel}>Total Sessions</Text>
@@ -74,13 +75,13 @@ export default function AnalyticsScreen() {
                 <View style={styles.chartContainer}>
                     {dashboard?.focusTimeLast7Days?.length ? (
                         dashboard.focusTimeLast7Days.map((d, i) => {
-                            const heightPercentage = Math.max(5, (d.focusMinutes / maxFocus) * 100);
+                            const heightPercentage = Math.max(5, (d.minutes / maxFocus) * 100);
                             const dateObj = new Date(d.date);
                             const dayLetter = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dateObj.getDay()];
                             return (
                                 <View key={i} style={styles.barCol}>
                                     <View style={styles.barTrack}>
-                                        <View style={[styles.barFill, { height: `${heightPercentage}%`, backgroundColor: d.focusMinutes > 0 ? '#8b5cf6' : 'rgba(255,255,255,0.05)' }]} />
+                                        <View style={[styles.barFill, { height: `${heightPercentage}%`, backgroundColor: d.minutes > 0 ? Colors.primary : Colors.border }]} />
                                     </View>
                                     <Text style={styles.barLabel}>{dayLetter}</Text>
                                 </View>
@@ -90,7 +91,7 @@ export default function AnalyticsScreen() {
                         [0, 0, 0, 0, 0, 0, 0].map((h, i) => (
                             <View key={i} style={styles.barCol}>
                                 <View style={styles.barTrack}>
-                                    <View style={[styles.barFill, { height: '5%' }]} />
+                                    <View style={[styles.barFill, { height: '5%', backgroundColor: Colors.border }]} />
                                 </View>
                                 <Text style={styles.barLabel}>-</Text>
                             </View>
@@ -108,7 +109,7 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#130f1e',
+        backgroundColor: Colors.background,
     },
     content: {
         padding: 24,
@@ -121,11 +122,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: Colors.text,
     },
     subtitle: {
         fontSize: 14,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginTop: 4,
     },
     kpiContainer: {
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     },
     kpiCard: {
         flex: 1,
-        backgroundColor: '#161618',
+        backgroundColor: Colors.surface,
         borderRadius: 16,
         padding: 20,
         justifyContent: 'space-between',
@@ -143,11 +144,11 @@ const styles = StyleSheet.create({
     },
     orangeBorder: {
         borderLeftWidth: 2,
-        borderColor: '#f97316',
+        borderColor: Colors.matrix.q1,
     },
     blueBorder: {
         borderLeftWidth: 2,
-        borderColor: '#3b82f6',
+        borderColor: Colors.matrix.q2,
     },
     icon: {
         marginBottom: 16,
@@ -159,26 +160,26 @@ const styles = StyleSheet.create({
     kpiValue: {
         fontSize: 32,
         fontWeight: '900',
-        color: '#ffffff',
+        color: Colors.text,
     },
     kpiUnit: {
         fontSize: 16,
-        color: '#9ca3af',
+        color: Colors.textDim,
         marginLeft: 4,
     },
     kpiLabel: {
         fontSize: 10,
-        color: '#9ca3af',
+        color: Colors.textDim,
         textTransform: 'uppercase',
         fontWeight: '600',
         marginTop: 4,
     },
     chartSection: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.surface,
         borderRadius: 24,
         padding: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: Colors.border,
     },
     chartHeader: {
         flexDirection: 'row',
@@ -189,16 +190,16 @@ const styles = StyleSheet.create({
     chartTitle: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#d1d5db',
+        color: Colors.text,
     },
     badge: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 4,
     },
     badgeText: {
-        color: '#6b7280',
+        color: Colors.textDim,
         fontSize: 12,
         fontWeight: '600',
     },
@@ -206,7 +207,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         height: 128,
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
+        alignItems: 'stretch',
         marginBottom: 16,
     },
     barCol: {
@@ -216,22 +217,22 @@ const styles = StyleSheet.create({
     },
     barTrack: {
         width: '100%',
-        flex: 1,
+        height: 90,
         justifyContent: 'flex-end',
     },
     barFill: {
         width: '80%',
         alignSelf: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.background,
         borderTopLeftRadius: 4,
         borderTopRightRadius: 4,
     },
     barLabel: {
         fontSize: 10,
-        color: '#6b7280',
+        color: Colors.textDim,
     },
     emptyChartText: {
-        color: '#4b5563',
+        color: Colors.textDim,
         fontSize: 12,
         textAlign: 'center',
         fontStyle: 'italic',

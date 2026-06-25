@@ -140,6 +140,13 @@ public class TaskServiceImpl implements TaskService {
 
         // Dùng Stream API để map toàn bộ danh sách Entity sang DTO
         return tasks.stream()
+                .filter(task -> task.getStatus() != Task.TaskStatus.CANCELLED || (task.getTargetDate() != null && !task.getTargetDate().isAfter(LocalDate.now())))
+                .filter(task -> {
+                    boolean isOverdue = task.getTargetDate() != null
+                            && task.getTargetDate().isBefore(LocalDate.now())
+                            && task.getStatus() != Task.TaskStatus.COMPLETED;
+                    return !isOverdue;
+                })
                 .map(taskMapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -153,6 +160,7 @@ public class TaskServiceImpl implements TaskService {
         List<Task> tasks = taskRepository.findByUserIdAndTargetDate(userId, targetDate);
 
         return tasks.stream()
+                .filter(task -> task.getStatus() != Task.TaskStatus.CANCELLED || !targetDate.isAfter(LocalDate.now()))
                 .map(taskMapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -301,6 +309,46 @@ public class TaskServiceImpl implements TaskService {
         }
 
         return response;
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getOverdueTasks(Long userId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
+        List<Task> overdueTasks = taskRepository.findOverdueTasks(userId, LocalDate.now());
+        return overdueTasks.stream()
+                .map(taskMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse cancelTask(Long taskId, Long userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc"));
+
+        if (!task.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Không có quyền hủy công việc này");
+        }
+
+        task.setStatus(Task.TaskStatus.CANCELLED);
+        task = taskRepository.save(task);
+
+        // Notify vector DB of change
+        String authHeader = getAuthHeaderSafely();
+        if (authHeader != null) {
+            vectorSyncService.syncToAi(taskMapper.toResponse(task), authHeader);
+        }
+
+        // Xóa tất cả các TimeBlock trong tương lai để không hiện trên lịch nữa
+        timeBlockRepository.deleteFutureByTaskId(task.getId(), LocalDateTime.now());
+
+        // Chạy lại auto-schedule để dồn task khác lên lấp chỗ trống
+        Long contextId = task.getContext() != null ? task.getContext().getId() : null;
+        schedulingService.triggerAutoSchedule(userId, contextId, task.getTargetDate());
+
+        return taskMapper.toResponse(task);
     }
 
 

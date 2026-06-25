@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { X, Clock, Target, Zap, Trash2, AlertTriangle, Wrench, Play } from 'lucide-react-native';
 import { TimeBlock } from '../services/schedule.service';
 import { useCustomAlert } from './CustomAlertContext';
+import { Colors } from '../constants/theme';
+import { focusTargetService } from '../services/pomodoro.service';
 
 interface Props {
   visible: boolean;
@@ -53,27 +55,27 @@ export default function TimeBlockDetailModal({ visible, onClose, onDeleteTask, o
         <View style={styles.content}>
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 10 }}>
-              <Zap size={20} color={timeBlock.isOverloaded ? "#ef4444" : "#3b82f6"} />
-              <Text style={[styles.title, timeBlock.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{timeBlock.taskTitle}</Text>
+              <Zap size={20} color={timeBlock.isOverloaded ? Colors.error : Colors.primary} />
+              <Text style={[styles.title, timeBlock.isOverloaded && { color: Colors.error }]} numberOfLines={1}>{timeBlock.taskTitle}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               {onEditTask && (
                 <TouchableOpacity onPress={() => { onClose(); onEditTask(timeBlock.taskId); }} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                  <Wrench size={18} color="#f59e0b" />
+                  <Wrench size={18} color={Colors.warning} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleDelete} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                <Trash2 size={18} color="#ef4444" />
+                <Trash2 size={18} color={Colors.error} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                <X size={20} color="#9ca3af" />
+                <X size={20} color={Colors.textDim} />
               </TouchableOpacity>
             </View>
           </View>
 
           {timeBlock.isOverloaded && (
             <View style={styles.warningBanner}>
-              <AlertTriangle size={18} color="#ef4444" />
+              <AlertTriangle size={18} color={Colors.error} />
               <Text style={styles.warningText}>
                 Chú ý: Khối lượng công việc còn lại quá lớn so với thời gian rảnh của Context từ nay đến Hạn chót. Bạn có thể sẽ trễ hạn!
               </Text>
@@ -81,16 +83,16 @@ export default function TimeBlockDetailModal({ visible, onClose, onDeleteTask, o
           )}
 
           <View style={styles.infoRow}>
-            <Clock size={16} color="#9ca3af" />
+            <Clock size={16} color={Colors.textDim} />
             <Text style={styles.infoText}>
-              Block Time: <Text style={{ color: '#fff', fontWeight: 'bold' }}>{blockStart} - {blockEnd}</Text>
+              Block Time: <Text style={{ color: Colors.text, fontWeight: 'bold' }}>{blockStart} - {blockEnd}</Text>
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Target size={16} color="#9ca3af" />
+            <Target size={16} color={Colors.textDim} />
             <Text style={styles.infoText}>
-              Context: <Text style={{ color: '#fff' }}>{timeBlock.contextName}</Text>  •  Matrix: <Text style={{ color: '#f59e0b' }}>{timeBlock.matrixType}</Text>
+              Context: <Text style={{ color: Colors.text }}>{timeBlock.contextName}</Text>  •  Matrix: <Text style={{ color: Colors.warning }}>{timeBlock.matrixType}</Text>
             </Text>
           </View>
 
@@ -107,10 +109,10 @@ export default function TimeBlockDetailModal({ visible, onClose, onDeleteTask, o
 
             <View style={styles.progressStats}>
               <Text style={styles.statText}>
-                Focused: <Text style={{ color: '#10b981', fontWeight: 'bold' }}>{formatMinToHours(focusedMins)}</Text>
+                Focused: <Text style={{ color: Colors.success, fontWeight: 'bold' }}>{formatMinToHours(focusedMins)}</Text>
               </Text>
               <Text style={styles.statText}>
-                Total Est: <Text style={{ color: '#ffffff' }}>{formatMinToHours(totalEstimatedMins)}</Text>
+                Total Est: <Text style={{ color: Colors.text }}>{formatMinToHours(totalEstimatedMins)}</Text>
               </Text>
             </View>
             
@@ -120,7 +122,7 @@ export default function TimeBlockDetailModal({ visible, onClose, onDeleteTask, o
               </Text>
             )}
             {remainingMins <= 0 && (
-              <Text style={[styles.remainingText, { color: '#10b981' }]}>
+              <Text style={[styles.remainingText, { color: Colors.success }]}>
                 Task completed!
               </Text>
             )}
@@ -130,13 +132,11 @@ export default function TimeBlockDetailModal({ visible, onClose, onDeleteTask, o
             style={styles.startFocusBtn} 
             onPress={() => {
               onClose();
-              router.push({
-                pathname: '/(tabs)/focus',
-                params: { taskId: timeBlock.taskId, taskTitle: timeBlock.taskTitle }
-              });
+              focusTargetService.setTarget({ type: 'TASK', id: timeBlock.taskId, title: timeBlock.taskTitle });
+              router.navigate('/(tabs)/focus');
             }}
           >
-            <Play size={18} color="#8b5cf6" fill="#8b5cf6" />
+            <Play size={18} color={Colors.primary} fill={Colors.primary} />
             <Text style={styles.startFocusBtnText}>Bắt đầu Focus</Text>
           </TouchableOpacity>
 
@@ -154,11 +154,11 @@ const styles = StyleSheet.create({
     padding: 20
   },
   content: {
-    backgroundColor: '#1f2937',
+    backgroundColor: Colors.background,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#374151'
+    borderColor: Colors.textDim
   },
   header: {
     flexDirection: 'row',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: Colors.text,
     flex: 1
   },
   infoRow: {
@@ -179,14 +179,14 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   infoText: {
-    color: '#9ca3af',
+    color: Colors.textDim,
     fontSize: 14
   },
   warningBanner: {
     flexDirection: 'row',
     backgroundColor: '#7f1d1d' + '30',
     borderWidth: 1,
-    borderColor: '#ef4444' + '50',
+    borderColor: Colors.error + '50',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
@@ -194,18 +194,18 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   warningText: {
-    color: '#fca5a5',
+    color: Colors.error,
     fontSize: 13,
     flex: 1,
     lineHeight: 18
   },
   progressContainer: {
     marginTop: 16,
-    backgroundColor: '#111827',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#374151'
+    borderColor: Colors.textDim
   },
   progressHeader: {
     flexDirection: 'row',
@@ -213,25 +213,25 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   progressLabel: {
-    color: '#d1d5db',
+    color: Colors.text,
     fontSize: 14,
     fontWeight: '600'
   },
   progressPercent: {
-    color: '#3b82f6',
+    color: Colors.primary,
     fontWeight: 'bold',
     fontSize: 14
   },
   progressBarBg: {
     height: 10,
-    backgroundColor: '#374151',
+    backgroundColor: Colors.textDim,
     borderRadius: 5,
     overflow: 'hidden',
     marginBottom: 12
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#3b82f6',
+    backgroundColor: Colors.primary,
     borderRadius: 5
   },
   progressStats: {
@@ -240,12 +240,12 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   statText: {
-    color: '#9ca3af',
+    color: Colors.textDim,
     fontSize: 13
   },
   remainingText: {
     textAlign: 'center',
-    color: '#f59e0b',
+    color: Colors.warning,
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic'
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     borderColor: '#8b5cf6' + '40'
   },
   startFocusBtnText: {
-    color: '#8b5cf6',
+    color: Colors.primary,
     fontWeight: '600',
     fontSize: 15
   }

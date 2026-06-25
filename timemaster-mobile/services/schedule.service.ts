@@ -13,6 +13,7 @@ export interface TimeBlock {
   estimatedDuration?: number;
   remainingDuration?: number;
   isOverloaded?: boolean;
+  taskStatus?: string;
 }
 
 class ScheduleService {

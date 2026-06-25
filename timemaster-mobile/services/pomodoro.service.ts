@@ -12,7 +12,7 @@ export interface PomodoroRequest {
 
 export interface DailyFocusTime {
   date: string;
-  focusMinutes: number;
+  minutes: number;
 }
 
 export interface PomodoroDashboardResponse {
@@ -39,3 +39,19 @@ class PomodoroService {
 }
 
 export const pomodoroService = new PomodoroService();
+
+class FocusTargetService {
+    pendingTarget: any = null;
+
+    setTarget(target: any) {
+        this.pendingTarget = target;
+    }
+
+    consumeTarget() {
+        const target = this.pendingTarget;
+        this.pendingTarget = null;
+        return target;
+    }
+}
+
+export const focusTargetService = new FocusTargetService();

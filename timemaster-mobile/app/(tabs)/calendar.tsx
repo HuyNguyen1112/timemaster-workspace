@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, Anchor, Calendar as CalendarIcon, Zap, AlertTriangle } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, Anchor, Calendar as CalendarIcon, Zap, AlertTriangle, CheckCircle, XCircle } from 'lucide-react-native';
 import AddTaskModal from '../../components/AddTaskModal';
 import AddEventModal from '../../components/AddEventModal';
 import TimeBlockDetailModal from '../../components/TimeBlockDetailModal';
 import TaskDetailModal from '../../components/TaskDetailModal';
+import OverdueModal from '../../components/OverdueModal';
 import { useAuth } from '../../context/AuthContext';
 import { taskService, Task, mapTaskToUI } from '../../services/task.service';
 import { contextService, Context } from '../../services/context.service';
@@ -13,6 +14,7 @@ import { scheduleService, TimeBlock } from '../../services/schedule.service';
 import { notificationService } from '../../services/notification.service';
 import { useFocusEffect } from 'expo-router';
 import { useCustomAlert } from '../../components/CustomAlertContext';
+import { Colors } from '../../constants/theme';
 
 const HOUR_HEIGHT = 60; // 1 pixel per minute
 
@@ -36,6 +38,8 @@ export default function CalendarScreen() {
     const [showTimeBlockDetail, setShowTimeBlockDetail] = useState(false);
     const [selectedTimeBlock, setSelectedTimeBlock] = useState<TimeBlock | null>(null);
     const [showTaskDetail, setShowTaskDetail] = useState(false);
+    const [showOverdueModal, setShowOverdueModal] = useState(false);
+    const [overdueTasksForModal, setOverdueTasksForModal] = useState<any[]>([]);
 
     const formatLocalISOString = (d: Date) => {
         const pad = (n: number) => n.toString().padStart(2, '0');
@@ -120,8 +124,25 @@ export default function CalendarScreen() {
     };
 
     const handleTaskPress = (t: Task) => {
-        setSelectedTask(mapTaskToUI(t));
-        setShowTaskDetail(true);
+        if (t.isOverdue) {
+            setOverdueTasksForModal([mapTaskToUI(t)]);
+            setShowOverdueModal(true);
+        } else {
+            setSelectedTask(mapTaskToUI(t));
+            setShowTaskDetail(true);
+        }
+    };
+
+    const handleCancelOverdueTask = async (taskId: number) => {
+        if (!user) return;
+        try {
+            await taskService.cancelTask(user.userId, taskId);
+            setShowOverdueModal(false);
+            showAlert({ title: 'Thành công', message: 'Đã hủy công việc quá hạn.', type: 'success' });
+            loadData();
+        } catch (error) {
+            showAlert({ title: 'Lỗi', message: 'Không thể hủy công việc.', type: 'error' });
+        }
     };
 
     const handleEditTaskFromBlock = async (taskId: number) => {
@@ -188,6 +209,17 @@ export default function CalendarScreen() {
         }
     };
 
+    const handleDeleteEvent = async (eventId: number) => {
+        try {
+            await eventService.deleteEvent(eventId);
+            setShowAddTask(false);
+            showAlert({ title: 'Thành công', message: 'Đã xóa sự kiện.', type: 'success' });
+            loadData();
+        } catch (error: any) {
+            showAlert({ title: 'Lỗi', message: error.response?.data?.message || 'Không thể xóa sự kiện.', type: 'error' });
+        }
+    };
+
     const handleAutoSchedule = async () => {
         try {
             setLoading(true);
@@ -213,10 +245,10 @@ export default function CalendarScreen() {
                 <Text style={styles.headerTitle}>Schedule</Text>
                 <View style={styles.headerActions}>
                     <TouchableOpacity style={styles.actionBtn} onPress={handleAutoSchedule}>
-                        <CalendarIcon size={18} color="#f97316" />
+                        <CalendarIcon size={18} color={Colors.matrix.q1} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn} onPress={handleAddClick}>
-                        <Plus size={20} color="#8b5cf6" />
+                        <Plus size={20} color={Colors.primary} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -224,18 +256,18 @@ export default function CalendarScreen() {
             {/* Date Navigator */}
             <View style={styles.dateNavigator}>
                 <TouchableOpacity onPress={handlePrevDay} style={styles.navBtn}>
-                    <ChevronLeft size={24} color="#ffffff" />
+                    <ChevronLeft size={24} color={Colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.dateText}>
                     {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </Text>
                 <TouchableOpacity onPress={handleNextDay} style={styles.navBtn}>
-                    <ChevronRight size={24} color="#ffffff" />
+                    <ChevronRight size={24} color={Colors.text} />
                 </TouchableOpacity>
             </View>
 
             {loading ? (
-                <ActivityIndicator color="#8b5cf6" style={{ marginTop: 40 }} />
+                <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
             ) : (
                 <ScrollView contentContainerStyle={styles.timelineContent} showsVerticalScrollIndicator={false}>
                     {/* Grid Background */}
@@ -287,11 +319,37 @@ export default function CalendarScreen() {
                         {fixedTasks.map(ft => {
                             const startMins = timeToMinutes(ft.startTime);
                             const height = Math.max((ft.estimatedDuration || 1) * 60, 30);
+                            const isOverdue = ft.isOverdue;
+                            const isDone = ft.status === 'COMPLETED' || ft.done;
+                            const isCancelled = ft.status === 'CANCELLED';
                             return (
-                                <TouchableOpacity key={`ft-${ft.id}`} style={[styles.fixedTaskBlock, { top: startMins, height: height }]} onPress={() => handleTaskPress(ft)}>
+                                <TouchableOpacity 
+                                    key={`ft-${ft.id}`} 
+                                    style={[
+                                        styles.fixedTaskBlock, 
+                                        { top: startMins, height: height },
+                                        isOverdue && !isDone && !isCancelled && { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: Colors.error },
+                                        isDone && { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: Colors.success },
+                                        isCancelled && { backgroundColor: 'rgba(156, 163, 175, 0.1)', borderColor: Colors.textDim }
+                                    ]} 
+                                    onPress={() => handleTaskPress(ft)}
+                                >
                                     <View style={styles.fixedHeader}>
-                                        <Anchor size={14} color="#f59e0b" />
-                                        <Text style={styles.fixedTaskTitle}>{ft.title}</Text>
+                                        {isCancelled ? (
+                                            <XCircle size={14} color={Colors.textDim} />
+                                        ) : isDone ? (
+                                            <CheckCircle size={14} color={Colors.success} />
+                                        ) : isOverdue ? (
+                                            <AlertTriangle size={14} color={Colors.error} />
+                                        ) : (
+                                            <Anchor size={14} color={Colors.warning} />
+                                        )}
+                                        <Text style={[
+                                            styles.fixedTaskTitle, 
+                                            isOverdue && !isDone && !isCancelled && { color: Colors.error },
+                                            isDone && { color: Colors.success, textDecorationLine: 'line-through' },
+                                            isCancelled && { color: Colors.textDim, textDecorationLine: 'line-through' }
+                                        ]}>{ft.title}</Text>
                                     </View>
                                 </TouchableOpacity>
                             );
@@ -302,28 +360,50 @@ export default function CalendarScreen() {
                             const startMins = timeToMinutes(tb.startTime);
                             const endMins = timeToMinutes(tb.endTime);
                             const height = Math.max(endMins - startMins, 20);
+                            const isDone = tb.remainingDuration === 0 || tb.taskStatus === 'COMPLETED';
+                            const isCancelled = tb.taskStatus === 'CANCELLED';
                             return (
                                 <TouchableOpacity 
                                     key={`tb-${tb.id}`} 
-                                    style={[styles.timeBlock, { top: startMins, height: height, borderColor: tb.isLocked ? '#f59e0b' : '#3b82f6' }]}
+                                    style={[
+                                        styles.timeBlock, 
+                                        { top: startMins, height: height, borderColor: tb.isLocked ? Colors.warning : Colors.matrix.q2 },
+                                        isDone && { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: Colors.success },
+                                        isCancelled && { backgroundColor: 'rgba(156, 163, 175, 0.1)', borderColor: Colors.textDim }
+                                    ]}
                                     onPress={() => { setSelectedTimeBlock(tb); setShowTimeBlockDetail(true); }}
                                 >
                                     <View style={styles.timeBlockHeader}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 4 }}>
-                                            <Zap size={14} color={tb.isOverloaded ? "#ef4444" : "#3b82f6"} />
-                                            <Text style={[styles.timeBlockTitle, tb.isOverloaded && { color: '#ef4444' }]} numberOfLines={1}>{tb.taskTitle}</Text>
+                                            {isCancelled ? (
+                                                <XCircle size={14} color={Colors.textDim} />
+                                            ) : isDone ? (
+                                                <CheckCircle size={14} color={Colors.success} />
+                                            ) : (
+                                                <Zap size={14} color={tb.isOverloaded ? Colors.error : Colors.matrix.q2} />
+                                            )}
+                                            <Text style={[
+                                                styles.timeBlockTitle, 
+                                                tb.isOverloaded && !isDone && !isCancelled && { color: Colors.error },
+                                                isDone && { color: Colors.success, textDecorationLine: 'line-through' },
+                                                isCancelled && { color: Colors.textDim, textDecorationLine: 'line-through' }
+                                            ]} numberOfLines={1}>{tb.taskTitle}</Text>
                                         </View>
-                                        {tb.isOverloaded && <AlertTriangle size={14} color="#ef4444" style={{ marginRight: 24 }} />}
+                                        {tb.isOverloaded && !isDone && <AlertTriangle size={14} color={Colors.error} style={{ marginRight: 24 }} />}
                                     </View>
                                     {height >= 40 && (
-                                        <Text style={styles.timeBlockSub}>{tb.contextName} • {tb.matrixType}</Text>
+                                        <Text style={[
+                                            styles.timeBlockSub,
+                                            isDone && { color: Colors.success },
+                                            isCancelled && { color: Colors.textDim }
+                                        ]}>{tb.contextName} • {tb.matrixType}</Text>
                                     )}
                                     <TouchableOpacity 
                                         style={styles.lockBtn} 
                                         onPress={(e) => { e.stopPropagation(); handleToggleLock(tb.id, !tb.isLocked); }}
                                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
-                                        {tb.isLocked ? <Lock size={16} color="#f59e0b" /> : <Unlock size={16} color="#9ca3af" />}
+                                        {tb.isLocked ? <Lock size={16} color={Colors.warning} /> : <Unlock size={16} color={Colors.textDim} />}
                                     </TouchableOpacity>
                                 </TouchableOpacity>
                             );
@@ -337,6 +417,7 @@ export default function CalendarScreen() {
                 onClose={() => setShowAddTask(false)}
                 onAdd={handleAddTask}
                 onAddEvent={handleAddEvent}
+                onDeleteEvent={handleDeleteEvent}
                 task={selectedTask}
                 contexts={contexts}
             />
@@ -361,42 +442,54 @@ export default function CalendarScreen() {
                 onToggle={async () => {}}
             />
 
+            <OverdueModal
+                visible={showOverdueModal}
+                onClose={() => setShowOverdueModal(false)}
+                tasks={overdueTasksForModal}
+                onCancelTask={handleCancelOverdueTask}
+                onEditTask={(task: any) => {
+                    setShowOverdueModal(false);
+                    setSelectedTask(task);
+                    setShowAddTask(true);
+                }}
+            />
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#130f1e' },
+    container: { flex: 1, backgroundColor: Colors.background },
     header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#ffffff' },
+    headerTitle: { fontSize: 28, fontWeight: 'bold', color: Colors.text },
     headerActions: { flexDirection: 'row', gap: 12 },
-    actionBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    actionBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
     dateNavigator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 16 },
-    navBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 },
-    dateText: { fontSize: 16, fontWeight: '600', color: '#f3f4f6' },
+    navBtn: { padding: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: 12 },
+    dateText: { fontSize: 16, fontWeight: '600', color: Colors.text },
     
     timelineContent: { position: 'relative', height: 24 * HOUR_HEIGHT + 100, paddingBottom: 100 },
     gridLine: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16 },
-    hourText: { width: 45, color: '#6b7280', fontSize: 12, fontWeight: '500', marginTop: -8 },
-    gridLineDash: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginTop: 0 },
+    hourText: { width: 45, color: Colors.textDim, fontSize: 12, fontWeight: '500', marginTop: -8 },
+    gridLineDash: { flex: 1, height: 1, backgroundColor: Colors.border, marginTop: 0 },
     
     eventsContainer: { position: 'absolute', left: 60, right: 16, top: 0, bottom: 0 },
     
     contextRegion: { position: 'absolute', left: 0, right: 0, borderLeftWidth: 4, borderRadius: 8, padding: 8, zIndex: 0 },
     contextRegionText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.8 },
     
-    eventBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: '#3f3f46', borderRadius: 8, padding: 8, zIndex: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#52525b' },
+    eventBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: Colors.surface, borderRadius: 8, padding: 8, zIndex: 10, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
     eventStripes: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.2)', opacity: 0.1 },
-    eventTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
-    timeTextSmall: { color: '#a1a1aa', fontSize: 10, marginTop: 4 },
+    eventTitle: { color: Colors.text, fontSize: 14, fontWeight: 'bold' },
+    timeTextSmall: { color: Colors.textDim, fontSize: 10, marginTop: 4 },
     
     fixedTaskBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: 'rgba(245, 158, 11, 0.15)', borderRadius: 8, padding: 8, zIndex: 11, borderWidth: 1, borderColor: '#f59e0b' },
     fixedHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    fixedTaskTitle: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
+    fixedTaskTitle: { color: Colors.text, fontSize: 14, fontWeight: 'bold' },
     
     timeBlock: { position: 'absolute', left: 4, right: 4, backgroundColor: 'rgba(59, 130, 246, 0.15)', borderRadius: 8, padding: 8, zIndex: 12, borderWidth: 1, borderLeftWidth: 4, flexDirection: 'column' },
     timeBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 24 },
-    timeBlockTitle: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
-    timeBlockSub: { color: '#9ca3af', fontSize: 10, marginTop: 4 },
+    timeBlockTitle: { color: Colors.text, fontSize: 13, fontWeight: '600' },
+    timeBlockSub: { color: Colors.textDim, fontSize: 10, marginTop: 4 },
     lockBtn: { position: 'absolute', top: 8, right: 8, zIndex: 20 },
 });
